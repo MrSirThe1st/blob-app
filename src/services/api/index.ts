@@ -1,9 +1,3 @@
-/**
- * API services central export
- * Single import point for all API-related services
- */
-
-// Supabase client
 export {
   getCurrentUser,
   getUserProfile,
