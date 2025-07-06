@@ -57,10 +57,10 @@ class AuthService {
         return { user: null, session: null, error };
       }
 
-      // If user was created successfully, create their profile
-      if (data.user && !error) {
-        await this.createUserProfile(data.user, fullName);
-      }
+      // Don't create profile immediately - let auth state change handle it
+      console.log(
+        "✅ User authentication created, profile will be created on auth state change"
+      );
 
       return {
         user: data.user,
@@ -205,12 +205,12 @@ class AuthService {
   }
 
   /**
-   * Create user profile in database
+   * Create user profile in database (public)
    */
-  private async createUserProfile(
+  async createUserProfile(
     user: User,
     fullName?: string
-  ): Promise<void> {
+  ): Promise<{ error: any | null }> {
     try {
       const { error } = await supabase.from("users").insert({
         id: user.id,
@@ -218,15 +218,29 @@ class AuthService {
         full_name: fullName || user.user_metadata?.full_name,
         avatar_url: user.user_metadata?.avatar_url,
         created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        // Add default values for required fields
+        onboarding_completed: false,
+        onboarding_step: 0,
+        xp_total: 0,
+        current_level: 1,
+        current_streak: 0,
+        longest_streak: 0,
+        break_duration: 15,
+        calendar_connected: false,
+        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
       });
 
       if (error) {
         console.error("Create user profile error:", error.message);
-        throw error;
+        return { error };
       }
+
+      console.log("✅ User profile created successfully");
+      return { error: null };
     } catch (err) {
       console.error("Create user profile exception:", err);
-      throw err;
+      return { error: err };
     }
   }
 
@@ -257,22 +271,28 @@ class AuthService {
         .from("users")
         .select(
           `
-          id,
-          email,
-          full_name,
-          avatar_url,
-          onboarding_completed,
-          onboarding_step,
-          xp_total,
-          current_level,
-          current_streak
-        `
+        id,
+        email,
+        full_name,
+        avatar_url,
+        onboarding_completed,
+        onboarding_step,
+        xp_total,
+        current_level,
+        current_streak
+      `
         )
         .eq("id", userId)
-        .single();
+        .maybeSingle(); // Use maybeSingle() instead of single()
 
       if (error) {
         console.error("Get user profile error:", error.message);
+        return null;
+      }
+
+      // If no data returned, user profile doesn't exist
+      if (!data) {
+        console.log("No profile found for user:", userId);
         return null;
       }
 

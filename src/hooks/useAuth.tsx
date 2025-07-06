@@ -88,14 +88,48 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     const {
       data: { subscription },
     } = authService.onAuthStateChange(async (event, newSession) => {
-      console.log("Auth state changed:", event, newSession?.user?.email);
+      console.log("🔥 Auth state changed:", event, newSession?.user?.email);
 
       if (mounted) {
         setSession(newSession);
         setUser(newSession?.user || null);
 
         if (newSession?.user) {
-          await loadUserProfile(newSession.user.id);
+          try {
+            console.log("🔍 Looking for profile for user:", newSession.user.id);
+
+            // Try to load existing profile
+            const profile = await authService.getUserProfile(
+              newSession.user.id
+            );
+
+            if (!profile) {
+              console.log("📝 No profile found, creating new one...");
+              const { error: createError } =
+                await authService.createUserProfile(
+                  newSession.user,
+                  newSession.user.user_metadata?.full_name
+                );
+
+              if (createError) {
+                console.error("❌ Failed to create user profile:", createError);
+              } else {
+                console.log("✅ Profile created, loading...");
+                // Wait a moment then load the profile
+                await new Promise((resolve) => setTimeout(resolve, 100));
+                const newProfile = await authService.getUserProfile(
+                  newSession.user.id
+                );
+                setUserProfile(newProfile);
+                console.log("✅ New profile loaded:", !!newProfile);
+              }
+            } else {
+              setUserProfile(profile);
+              console.log("✅ Existing profile loaded for:", profile.email);
+            }
+          } catch (error) {
+            console.error("❌ Error handling user profile:", error);
+          }
         } else {
           setUserProfile(null);
         }
