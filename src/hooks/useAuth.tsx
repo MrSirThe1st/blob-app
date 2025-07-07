@@ -1,17 +1,12 @@
-/**
- * Authentication context and hook
- * Provides auth state management across the app
- */
-
+import { authService, UserProfileData } from "@/services/api/auth";
+import { Session, User } from "@supabase/supabase-js";
 import React, {
   createContext,
+  ReactNode,
   useContext,
   useEffect,
   useState,
-  ReactNode,
 } from "react";
-import { Session, User } from "@supabase/supabase-js";
-import { authService, UserProfileData } from "@/services/api/auth";
 
 // Auth context types
 interface AuthContextType {
@@ -54,28 +49,41 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   // Derived state
   const isAuthenticated = !!user && !!session;
 
-  // Initialize auth state
+  // Initialize authentication state
   useEffect(() => {
     let mounted = true;
 
     const initializeAuth = async () => {
       try {
+        console.log("🔐 Initializing authentication...");
+
         // Get current session
-        const { session: currentSession } = await authService.getSession();
+        const { session: currentSession, error: sessionError } =
+          await authService.getSession();
+
+        if (sessionError) {
+          console.error("❌ Session error:", sessionError);
+          return;
+        }
 
         if (mounted) {
-          setSession(currentSession);
-          setUser(currentSession?.user || null);
-
-          // Load user profile if authenticated
           if (currentSession?.user) {
-            await loadUserProfile(currentSession.user.id);
-          }
+            console.log(
+              "✅ Found existing session for:",
+              currentSession.user.email
+            );
+            setUser(currentSession.user);
+            setSession(currentSession);
 
-          setIsLoading(false);
+            // Load user profile
+            await loadUserProfile(currentSession.user.id);
+          } else {
+            console.log("ℹ️ No existing session found");
+          }
         }
       } catch (error) {
-        console.error("Auth initialization error:", error);
+        console.error("❌ Auth initialization error:", error);
+      } finally {
         if (mounted) {
           setIsLoading(false);
         }
@@ -84,57 +92,22 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
     initializeAuth();
 
-    // Listen for auth changes
+    // Set up auth state listener
     const {
       data: { subscription },
-    } = authService.onAuthStateChange(async (event, newSession) => {
-      console.log("🔥 Auth state changed:", event, newSession?.user?.email);
+    } = authService.onAuthStateChange(async (event, session) => {
+      console.log("🔄 Auth state changed:", event, session?.user?.email);
 
       if (mounted) {
-        setSession(newSession);
-        setUser(newSession?.user || null);
-
-        if (newSession?.user) {
-          try {
-            console.log("🔍 Looking for profile for user:", newSession.user.id);
-
-            // Try to load existing profile
-            const profile = await authService.getUserProfile(
-              newSession.user.id
-            );
-
-            if (!profile) {
-              console.log("📝 No profile found, creating new one...");
-              const { error: createError } =
-                await authService.createUserProfile(
-                  newSession.user,
-                  newSession.user.user_metadata?.full_name
-                );
-
-              if (createError) {
-                console.error("❌ Failed to create user profile:", createError);
-              } else {
-                console.log("✅ Profile created, loading...");
-                // Wait a moment then load the profile
-                await new Promise((resolve) => setTimeout(resolve, 100));
-                const newProfile = await authService.getUserProfile(
-                  newSession.user.id
-                );
-                setUserProfile(newProfile);
-                console.log("✅ New profile loaded:", !!newProfile);
-              }
-            } else {
-              setUserProfile(profile);
-              console.log("✅ Existing profile loaded for:", profile.email);
-            }
-          } catch (error) {
-            console.error("❌ Error handling user profile:", error);
-          }
+        if (session?.user) {
+          setUser(session.user);
+          setSession(session);
+          await loadUserProfile(session.user.id);
         } else {
+          setUser(null);
+          setSession(null);
           setUserProfile(null);
         }
-
-        setIsLoading(false);
       }
     });
 
@@ -144,135 +117,185 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     };
   }, []);
 
-  // Load user profile data
+  // Load user profile helper
   const loadUserProfile = async (userId: string) => {
     try {
+      console.log("👤 Loading user profile for:", userId);
       const profile = await authService.getUserProfile(userId);
-      setUserProfile(profile);
+
+      if (profile) {
+        console.log(
+          "✅ Profile loaded:",
+          profile.email,
+          "- Onboarding:",
+          profile.onboardingCompleted
+        );
+        setUserProfile(profile);
+      } else {
+        console.log("⚠️ No profile found, creating default profile");
+        // Create default profile if none exists
+        await authService.createUserProfile(userId);
+        // Retry loading
+        const newProfile = await authService.getUserProfile(userId);
+        setUserProfile(newProfile);
+      }
     } catch (error) {
-      console.error("Error loading user profile:", error);
+      console.error("❌ Error loading user profile:", error);
     }
   };
 
-  // Sign up function
+  // Auth actions
   const signUp = async (email: string, password: string, fullName?: string) => {
-    setIsLoading(true);
-    try {
-      const { user: newUser, error } = await authService.signUp({
-        email,
-        password,
-        fullName,
-      });
+    console.log("📝 Signing up user:", email);
 
-      if (!error && newUser) {
-        // Profile will be loaded automatically via auth state change
-        return { error: null };
+    try {
+      const result = await authService.signUp({ email, password, fullName });
+
+      if (result.error) {
+        console.error("❌ Signup failed:", result.error.message);
+        return { error: result.error };
       }
 
-      return { error };
+      console.log("✅ Signup successful for:", email);
+      // Auth state change will be handled by the listener
+      return { error: null };
     } catch (error) {
-      console.error("Sign up error:", error);
+      console.error("❌ Signup exception:", error);
       return { error };
-    } finally {
-      setIsLoading(false);
     }
   };
 
-  // Sign in function
   const signIn = async (email: string, password: string) => {
-    setIsLoading(true);
-    try {
-      const { user: signedInUser, error } = await authService.signIn({
-        email,
-        password,
-      });
+    console.log("🔑 Signing in user:", email);
 
-      if (!error && signedInUser) {
-        // Profile will be loaded automatically via auth state change
-        return { error: null };
+    try {
+      const result = await authService.signIn({ email, password });
+
+      if (result.error) {
+        console.error("❌ Signin failed:", result.error.message);
+        return { error: result.error };
       }
 
-      return { error };
+      console.log("✅ Signin successful for:", email);
+      // Auth state change will be handled by the listener
+      return { error: null };
     } catch (error) {
-      console.error("Sign in error:", error);
+      console.error("❌ Signin exception:", error);
       return { error };
-    } finally {
-      setIsLoading(false);
     }
   };
 
-  // Sign out function
   const signOut = async () => {
-    setIsLoading(true);
+    console.log("🚪 Signing out user");
+
     try {
       const { error } = await authService.signOut();
 
-      if (!error) {
-        // State will be cleared automatically via auth state change
-        return { error: null };
+      if (error) {
+        console.error("❌ Signout failed:", error.message);
+        return { error };
       }
 
-      return { error };
+      console.log("✅ Signout successful");
+      // Auth state change will be handled by the listener
+      return { error: null };
     } catch (error) {
-      console.error("Sign out error:", error);
+      console.error("❌ Signout exception:", error);
       return { error };
-    } finally {
-      setIsLoading(false);
     }
   };
 
-  // Reset password function
   const resetPassword = async (email: string) => {
+    console.log("🔄 Resetting password for:", email);
+
     try {
       const { error } = await authService.resetPassword(email);
-      return { error };
-    } catch (error) {
-      console.error("Reset password error:", error);
-      return { error };
-    }
-  };
 
-  // Update password function
-  const updatePassword = async (newPassword: string) => {
-    try {
-      const { error } = await authService.updatePassword(newPassword);
-      return { error };
-    } catch (error) {
-      console.error("Update password error:", error);
-      return { error };
-    }
-  };
-
-  // Update profile function
-  const updateProfile = async (updates: any) => {
-    if (!user) {
-      return { error: "No user authenticated" };
-    }
-
-    try {
-      const { error } = await authService.updateUserProfile(user.id, updates);
-
-      if (!error) {
-        // Refresh profile data
-        await loadUserProfile(user.id);
+      if (error) {
+        console.error("❌ Password reset failed:", error.message);
+        return { error };
       }
 
-      return { error };
+      console.log("✅ Password reset email sent to:", email);
+      return { error: null };
     } catch (error) {
-      console.error("Update profile error:", error);
+      console.error("❌ Password reset exception:", error);
       return { error };
     }
   };
 
-  // Refresh profile function
-  const refreshProfile = async () => {
-    if (user) {
-      await loadUserProfile(user.id);
+  const updatePassword = async (newPassword: string) => {
+    console.log("🔒 Updating password");
+
+    try {
+      const { error } = await authService.updatePassword(newPassword);
+
+      if (error) {
+        console.error("❌ Password update failed:", error.message);
+        return { error };
+      }
+
+      console.log("✅ Password updated successfully");
+      return { error: null };
+    } catch (error) {
+      console.error("❌ Password update exception:", error);
+      return { error };
     }
   };
 
-  // Context value
-  const value: AuthContextType = {
+  const updateProfile = async (updates: Partial<UserProfileData>) => {
+    if (!user?.id) {
+      const error = new Error("No user logged in");
+      console.error("❌ Profile update failed:", error.message);
+      return { error };
+    }
+
+    console.log("👤 Updating profile for:", user.email, updates);
+
+    try {
+      const updatedProfile = await authService.updateUserProfile(
+        user.id,
+        updates
+      );
+
+      if (updatedProfile) {
+        console.log("✅ Profile updated successfully");
+        setUserProfile(updatedProfile);
+        return { error: null };
+      } else {
+        const error = new Error("Failed to update profile");
+        console.error("❌ Profile update failed:", error.message);
+        return { error };
+      }
+    } catch (error) {
+      console.error("❌ Profile update exception:", error);
+      return { error };
+    }
+  };
+
+  const refreshProfile = async () => {
+    if (!user?.id) {
+      console.log("⚠️ Cannot refresh profile: no user logged in");
+      return;
+    }
+
+    console.log("🔄 Refreshing profile for:", user.email);
+    await loadUserProfile(user.id);
+  };
+
+  // Debug logging for development
+  useEffect(() => {
+    if (!isLoading) {
+      console.log("🔍 Auth State Summary:", {
+        isAuthenticated,
+        userEmail: user?.email,
+        hasProfile: !!userProfile,
+        onboardingComplete: userProfile?.onboardingCompleted,
+      });
+    }
+  }, [isLoading, isAuthenticated, user, userProfile]);
+
+  const contextValue: AuthContextType = {
     // State
     user,
     session,
@@ -290,10 +313,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     refreshProfile,
   };
 
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+  return (
+    <AuthContext.Provider value={contextValue}>{children}</AuthContext.Provider>
+  );
 };
 
-// Custom hook to use auth context
+// Hook to use auth context
 export const useAuth = (): AuthContextType => {
   const context = useContext(AuthContext);
 
@@ -302,28 +327,6 @@ export const useAuth = (): AuthContextType => {
   }
 
   return context;
-};
-
-// Helper hooks for common auth checks
-export const useRequireAuth = () => {
-  const { isAuthenticated, isLoading } = useAuth();
-
-  return {
-    isAuthenticated,
-    isLoading,
-    requiresAuth: !isAuthenticated && !isLoading,
-  };
-};
-
-export const useAuthUser = () => {
-  const { user, userProfile, isLoading } = useAuth();
-
-  return {
-    user,
-    userProfile,
-    isLoading,
-    hasProfile: !!userProfile,
-  };
 };
 
 export default useAuth;

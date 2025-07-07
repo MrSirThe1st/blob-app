@@ -1,26 +1,26 @@
-import React, { useState } from "react";
 import {
-  View,
+  BorderRadius,
+  Colors,
+  Padding,
+  Spacing,
+  Typography,
+} from "@/constants";
+import { useAuth } from "@/hooks/useAuth";
+import { useNavigation } from "@react-navigation/native";
+import { useState } from "react";
+import {
+  ActivityIndicator,
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
+  SafeAreaView,
+  ScrollView,
+  StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
-  StyleSheet,
-  SafeAreaView,
-  Alert,
-  ActivityIndicator,
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
+  View,
 } from "react-native";
-import { useNavigation } from "@react-navigation/native";
-import { useAuth } from "@/hooks/useAuth";
-import {
-  Colors,
-  Typography,
-  Spacing,
-  BorderRadius,
-  Padding,
-} from "@/constants";
 
 const SignupScreen = () => {
   const navigation = useNavigation();

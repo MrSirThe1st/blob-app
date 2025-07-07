@@ -16,6 +16,9 @@ export const Colors = {
     700: "#C2410C", // Dark orange
     800: "#9A3412", // Very dark orange
     900: "#7C2D12", // Darkest orange
+    main: "#FF6B35", // Alias for 500 - Main brand color
+    light: "#FDBA74", // Alias for 300 - Light variant
+    dark: "#EA580C", // Alias for 600 - Dark variant
   },
 
   // Secondary Colors - Complementary Blues
@@ -30,6 +33,9 @@ export const Colors = {
     700: "#0369A1",
     800: "#075985",
     900: "#0C4A6E",
+    main: "#0EA5E9", // Alias for 500
+    light: "#38BDF8", // Alias for 400
+    dark: "#0284C7", // Alias for 600
   },
 
   // Neutral Colors - Warm grays
@@ -44,6 +50,9 @@ export const Colors = {
     700: "#44403C", // Darker gray
     800: "#292524", // Very dark gray
     900: "#1C1917", // Almost black
+    main: "#78716C", // Alias for 500
+    light: "#A8A29E", // Alias for 400
+    dark: "#57534E", // Alias for 600
   },
 
   // Semantic Colors
@@ -77,6 +86,7 @@ export const Colors = {
     secondary: "#FAFAF9", // Card backgrounds
     tertiary: "#F5F5F4", // Input backgrounds
     accent: "#FFF7ED", // Highlighted sections
+    card: "#FAFAF9", // Alias for secondary - commonly used
   },
 
   // Text Colors
@@ -84,7 +94,9 @@ export const Colors = {
     primary: "#1C1917", // Main text
     secondary: "#44403C", // Secondary text
     tertiary: "#78716C", // Muted text
+    muted: "#78716C", // Alias for tertiary
     inverse: "#FFFFFF", // Text on dark backgrounds
+    onPrimary: "#FFFFFF", // Text on primary color backgrounds
     accent: "#FF6B35", // Accent text (brand color)
   },
 
@@ -94,6 +106,8 @@ export const Colors = {
     medium: "#D6D3D1", // Medium borders
     dark: "#A8A29E", // Dark borders
     accent: "#FF6B35", // Accent borders
+    default: "#D6D3D1", // Default border color
+    subtle: "#E7E5E4", // Subtle borders
   },
 
   // Special Colors for Gamification
@@ -140,29 +154,29 @@ export const getColorWithOpacity = (color: string, opacity: number): string => {
 // Common color combinations
 export const ColorCombinations = {
   primaryButton: {
-    background: Colors.primary[500],
-    text: Colors.text.inverse,
-    border: Colors.primary[600],
+    background: Colors.primary.main,
+    text: Colors.text.onPrimary,
+    border: Colors.primary.dark,
   },
   secondaryButton: {
     background: Colors.background.secondary,
     text: Colors.text.primary,
-    border: Colors.border.medium,
+    border: Colors.border.default,
   },
   dangerButton: {
     background: Colors.error.main,
-    text: Colors.text.inverse,
+    text: Colors.text.onPrimary,
     border: Colors.error.dark,
   },
   card: {
-    background: Colors.background.secondary,
+    background: Colors.background.card,
     text: Colors.text.primary,
-    border: Colors.border.light,
+    border: Colors.border.subtle,
   },
   input: {
     background: Colors.background.tertiary,
     text: Colors.text.primary,
-    border: Colors.border.medium,
-    focusBorder: Colors.primary[500],
+    border: Colors.border.default,
+    focusBorder: Colors.primary.main,
   },
 } as const;
