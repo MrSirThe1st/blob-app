@@ -1,6 +1,6 @@
 /**
  * Blob AI Typography System
- * Friendly, modern, and readable typography hierarchy
+ * Fixed line heights to use absolute pixel values instead of multipliers
  */
 
 export const FontFamily = {
@@ -76,18 +76,46 @@ export const FontWeight = {
   extraBold: "800",
 } as const;
 
+// FIXED: Using absolute pixel values instead of multipliers
 export const LineHeight = {
-  // Tight line heights for headings
-  tight: 1.1,
+  // Display line heights
+  display: {
+    large: 52, // 48px font * 1.08
+    medium: 44, // 40px font * 1.1
+    small: 36, // 32px font * 1.125
+  },
 
-  // Normal line heights for body text
-  normal: 1.4,
+  // Heading line heights
+  heading: {
+    h1: 32, // 28px font * 1.14
+    h2: 28, // 24px font * 1.17
+    h3: 24, // 20px font * 1.2
+    h4: 22, // 18px font * 1.22
+    h5: 20, // 16px font * 1.25
+    h6: 18, // 14px font * 1.29
+  },
 
-  // Relaxed line heights for long-form content
-  relaxed: 1.6,
+  // Body line heights
+  body: {
+    large: 26, // 18px font * 1.44
+    medium: 24, // 16px font * 1.5
+    small: 20, // 14px font * 1.43
+    xs: 16, // 12px font * 1.33
+  },
 
-  // Loose line heights for better readability
-  loose: 1.8,
+  // Caption line heights
+  caption: {
+    large: 20, // 14px font * 1.43
+    medium: 16, // 12px font * 1.33
+    small: 14, // 10px font * 1.4
+  },
+
+  // Button line heights
+  button: {
+    large: 22, // 18px font * 1.22
+    medium: 20, // 16px font * 1.25
+    small: 18, // 14px font * 1.29
+  },
 } as const;
 
 export const LetterSpacing = {
@@ -104,21 +132,21 @@ export const Typography = {
   displayLarge: {
     fontSize: FontSize.display.large,
     fontWeight: FontWeight.bold,
-    lineHeight: LineHeight.tight,
+    lineHeight: LineHeight.display.large,
     letterSpacing: LetterSpacing.tight,
   },
 
   displayMedium: {
     fontSize: FontSize.display.medium,
     fontWeight: FontWeight.bold,
-    lineHeight: LineHeight.tight,
+    lineHeight: LineHeight.display.medium,
     letterSpacing: LetterSpacing.tight,
   },
 
   displaySmall: {
     fontSize: FontSize.display.small,
     fontWeight: FontWeight.bold,
-    lineHeight: LineHeight.tight,
+    lineHeight: LineHeight.display.small,
     letterSpacing: LetterSpacing.normal,
   },
 
@@ -126,42 +154,42 @@ export const Typography = {
   h1: {
     fontSize: FontSize.heading.h1,
     fontWeight: FontWeight.bold,
-    lineHeight: LineHeight.tight,
+    lineHeight: LineHeight.heading.h1,
     letterSpacing: LetterSpacing.normal,
   },
 
   h2: {
     fontSize: FontSize.heading.h2,
     fontWeight: FontWeight.semiBold,
-    lineHeight: LineHeight.tight,
+    lineHeight: LineHeight.heading.h2,
     letterSpacing: LetterSpacing.normal,
   },
 
   h3: {
     fontSize: FontSize.heading.h3,
     fontWeight: FontWeight.semiBold,
-    lineHeight: LineHeight.normal,
+    lineHeight: LineHeight.heading.h3,
     letterSpacing: LetterSpacing.normal,
   },
 
   h4: {
     fontSize: FontSize.heading.h4,
     fontWeight: FontWeight.medium,
-    lineHeight: LineHeight.normal,
+    lineHeight: LineHeight.heading.h4,
     letterSpacing: LetterSpacing.normal,
   },
 
   h5: {
     fontSize: FontSize.heading.h5,
     fontWeight: FontWeight.medium,
-    lineHeight: LineHeight.normal,
+    lineHeight: LineHeight.heading.h5,
     letterSpacing: LetterSpacing.normal,
   },
 
   h6: {
     fontSize: FontSize.heading.h6,
     fontWeight: FontWeight.medium,
-    lineHeight: LineHeight.normal,
+    lineHeight: LineHeight.heading.h6,
     letterSpacing: LetterSpacing.wide,
   },
 
@@ -169,28 +197,28 @@ export const Typography = {
   bodyLarge: {
     fontSize: FontSize.body.large,
     fontWeight: FontWeight.regular,
-    lineHeight: LineHeight.relaxed,
+    lineHeight: LineHeight.body.large,
     letterSpacing: LetterSpacing.normal,
   },
 
   bodyMedium: {
     fontSize: FontSize.body.medium,
     fontWeight: FontWeight.regular,
-    lineHeight: LineHeight.normal,
+    lineHeight: LineHeight.body.medium,
     letterSpacing: LetterSpacing.normal,
   },
 
   bodySmall: {
     fontSize: FontSize.body.small,
     fontWeight: FontWeight.regular,
-    lineHeight: LineHeight.normal,
+    lineHeight: LineHeight.body.small,
     letterSpacing: LetterSpacing.normal,
   },
 
   bodyXS: {
     fontSize: FontSize.body.xs,
     fontWeight: FontWeight.regular,
-    lineHeight: LineHeight.normal,
+    lineHeight: LineHeight.body.xs,
     letterSpacing: LetterSpacing.wide,
   },
 
@@ -198,21 +226,21 @@ export const Typography = {
   captionLarge: {
     fontSize: FontSize.caption.large,
     fontWeight: FontWeight.medium,
-    lineHeight: LineHeight.normal,
+    lineHeight: LineHeight.caption.large,
     letterSpacing: LetterSpacing.wide,
   },
 
   captionMedium: {
     fontSize: FontSize.caption.medium,
     fontWeight: FontWeight.regular,
-    lineHeight: LineHeight.normal,
+    lineHeight: LineHeight.caption.medium,
     letterSpacing: LetterSpacing.wide,
   },
 
   captionSmall: {
     fontSize: FontSize.caption.small,
     fontWeight: FontWeight.regular,
-    lineHeight: LineHeight.normal,
+    lineHeight: LineHeight.caption.small,
     letterSpacing: LetterSpacing.wider,
   },
 
@@ -220,21 +248,21 @@ export const Typography = {
   buttonLarge: {
     fontSize: FontSize.button.large,
     fontWeight: FontWeight.semiBold,
-    lineHeight: LineHeight.normal,
+    lineHeight: LineHeight.button.large,
     letterSpacing: LetterSpacing.wide,
   },
 
   buttonMedium: {
     fontSize: FontSize.button.medium,
     fontWeight: FontWeight.medium,
-    lineHeight: LineHeight.normal,
+    lineHeight: LineHeight.button.medium,
     letterSpacing: LetterSpacing.wide,
   },
 
   buttonSmall: {
     fontSize: FontSize.button.small,
     fontWeight: FontWeight.medium,
-    lineHeight: LineHeight.normal,
+    lineHeight: LineHeight.button.small,
     letterSpacing: LetterSpacing.wider,
   },
 
@@ -242,7 +270,7 @@ export const Typography = {
   overline: {
     fontSize: FontSize.caption.small,
     fontWeight: FontWeight.semiBold,
-    lineHeight: LineHeight.normal,
+    lineHeight: LineHeight.caption.small,
     letterSpacing: LetterSpacing.widest,
     textTransform: "uppercase" as const,
   },
@@ -251,14 +279,14 @@ export const Typography = {
   aiMessage: {
     fontSize: FontSize.body.medium,
     fontWeight: FontWeight.regular,
-    lineHeight: LineHeight.relaxed,
+    lineHeight: LineHeight.body.large, // More relaxed for conversations
     letterSpacing: LetterSpacing.normal,
   },
 
   userMessage: {
     fontSize: FontSize.body.medium,
     fontWeight: FontWeight.regular,
-    lineHeight: LineHeight.normal,
+    lineHeight: LineHeight.body.medium,
     letterSpacing: LetterSpacing.normal,
   },
 
@@ -266,21 +294,21 @@ export const Typography = {
   taskTitle: {
     fontSize: FontSize.body.medium,
     fontWeight: FontWeight.medium,
-    lineHeight: LineHeight.normal,
+    lineHeight: LineHeight.body.medium,
     letterSpacing: LetterSpacing.normal,
   },
 
   taskDescription: {
     fontSize: FontSize.body.small,
     fontWeight: FontWeight.regular,
-    lineHeight: LineHeight.normal,
+    lineHeight: LineHeight.body.small,
     letterSpacing: LetterSpacing.normal,
   },
 
   timeLabel: {
     fontSize: FontSize.caption.medium,
     fontWeight: FontWeight.medium,
-    lineHeight: LineHeight.normal,
+    lineHeight: LineHeight.caption.medium,
     letterSpacing: LetterSpacing.wide,
   },
 } as const;

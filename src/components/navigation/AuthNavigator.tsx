@@ -120,21 +120,45 @@ const AuthNavigator = () => {
 
   // Show loading screen while checking auth status
   if (isLoading) {
+    console.log("🔄 AuthNavigator: Still loading...");
     return <LoadingScreen />;
   }
+
+  // Debug logging for navigation decisions
+  console.log("🧭 AuthNavigator: Making navigation decision", {
+    isAuthenticated,
+    hasUserProfile: !!userProfile,
+    onboardingCompleted: userProfile?.onboardingCompleted,
+    userEmail: userProfile?.email,
+  });
 
   // Determine which navigator to show based on auth state and onboarding status
   const getNavigator = () => {
     if (!isAuthenticated) {
       // User not authenticated -> Show auth flow
+      console.log("📱 AuthNavigator: Showing auth flow (not authenticated)");
       return <AuthStackNavigator />;
-    } else if (userProfile && !userProfile.onboardingCompleted) {
-      // User authenticated but onboarding not complete -> Show onboarding
-      return <OnboardingStackNavigator />;
-    } else {
-      // User authenticated and onboarding complete -> Show main app
-      return <MainTabsNavigator />;
     }
+
+    // User is authenticated, check profile and onboarding status
+    if (!userProfile) {
+      // Profile is still loading or doesn't exist
+      console.log("⏳ AuthNavigator: Profile loading, showing loading screen");
+      return <LoadingScreen />;
+    }
+
+    // Check onboarding status
+    if (userProfile.onboardingCompleted === false) {
+      // User authenticated but onboarding not complete -> Show onboarding
+      console.log("🎯 AuthNavigator: Showing onboarding (not completed)");
+      return <OnboardingStackNavigator />;
+    }
+
+    // User authenticated and onboarding complete -> Show main app
+    console.log(
+      "🏠 AuthNavigator: Showing main app (authenticated + onboarded)"
+    );
+    return <MainTabsNavigator />;
   };
 
   return getNavigator();

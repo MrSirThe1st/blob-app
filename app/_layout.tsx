@@ -4,7 +4,6 @@ import { useColorScheme } from "@/hooks/useColorScheme";
 import {
   DarkTheme,
   DefaultTheme,
-  NavigationContainer,
   ThemeProvider,
 } from "@react-navigation/native";
 import { useFonts } from "expo-font";
@@ -23,14 +22,10 @@ export default function RootLayout() {
 
   return (
     <AuthProvider>
-      <NavigationContainer>
-        <ThemeProvider
-          value={colorScheme === "dark" ? DarkTheme : DefaultTheme}
-        >
-          <AuthNavigator />
-          <StatusBar style="auto" />
-        </ThemeProvider>
-      </NavigationContainer>
+      <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
+        <AuthNavigator />
+        <StatusBar style="auto" />
+      </ThemeProvider>
     </AuthProvider>
   );
 }

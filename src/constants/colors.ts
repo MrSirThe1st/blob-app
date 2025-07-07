@@ -1,24 +1,24 @@
 /**
  * Blob AI Color System
- * Based on organic, warm, and energetic blob philosophy
+ * Updated to match screenshot design: FAF8F4 background, E4E4E4 stroke, EB6423 orange, 4CAF50 green
  */
 
 export const Colors = {
-  // Primary Brand Colors - Blob Orange Theme
+  // Primary Brand Colors - Updated Orange Theme
   primary: {
-    50: "#FFF7ED", // Lightest orange tint
-    100: "#FFEDD5", // Very light orange
+    50: "#FFF7F1", // Lightest orange tint
+    100: "#FFEDD8", // Very light orange
     200: "#FED7AA", // Light orange
     300: "#FDBA74", // Medium light orange
     400: "#FB923C", // Medium orange
-    500: "#FF6B35", // Main brand orange
-    600: "#EA580C", // Darker orange
-    700: "#C2410C", // Dark orange
+    500: "#EB6423", // Main brand orange (from screenshot)
+    600: "#D45617", // Darker orange
+    700: "#B8470F", // Dark orange
     800: "#9A3412", // Very dark orange
     900: "#7C2D12", // Darkest orange
-    main: "#FF6B35", // Alias for 500 - Main brand color
+    main: "#EB6423", // Alias for 500 - Main brand color
     light: "#FDBA74", // Alias for 300 - Light variant
-    dark: "#EA580C", // Alias for 600 - Dark variant
+    dark: "#D45617", // Alias for 600 - Dark variant
   },
 
   // Secondary Colors - Complementary Blues
@@ -38,94 +38,94 @@ export const Colors = {
     dark: "#0284C7", // Alias for 600
   },
 
-  // Neutral Colors - Warm grays
+  // Neutral Colors - Updated based on screenshot
   neutral: {
-    50: "#FAFAF9", // Almost white
-    100: "#F5F5F4", // Very light gray
-    200: "#E7E5E4", // Light gray
-    300: "#D6D3D1", // Medium light gray
-    400: "#A8A29E", // Medium gray
-    500: "#78716C", // Main neutral
-    600: "#57534E", // Dark gray
-    700: "#44403C", // Darker gray
-    800: "#292524", // Very dark gray
-    900: "#1C1917", // Almost black
-    main: "#78716C", // Alias for 500
-    light: "#A8A29E", // Alias for 400
-    dark: "#57534E", // Alias for 600
+    50: "#FAF8F4", // Background from screenshot
+    100: "#F5F2EE", // Very light neutral
+    200: "#E4E4E4", // Stroke color from screenshot
+    300: "#D1D1D1", // Medium light gray
+    400: "#A1A1A1", // Medium gray
+    500: "#737373", // Main neutral
+    600: "#525252", // Dark gray
+    700: "#404040", // Darker gray
+    800: "#262626", // Very dark gray
+    900: "#171717", // Almost black
+    main: "#737373", // Alias for 500
+    light: "#A1A1A1", // Alias for 400
+    dark: "#525252", // Alias for 600
   },
 
   // Semantic Colors
   success: {
-    light: "#D1FAE5",
-    main: "#10B981",
-    dark: "#047857",
+    light: "#E8F5E8",
+    main: "#4CAF50", // Green from screenshot
+    dark: "#388E3C",
   },
 
   warning: {
-    light: "#FEF3C7",
-    main: "#F59E0B",
-    dark: "#D97706",
+    light: "#FFF3CD",
+    main: "#FFB020",
+    dark: "#E09900",
   },
 
   error: {
-    light: "#FEE2E2",
-    main: "#EF4444",
-    dark: "#DC2626",
+    light: "#FFEBEE",
+    main: "#F44336",
+    dark: "#D32F2F",
   },
 
   info: {
-    light: "#DBEAFE",
-    main: "#3B82F6",
-    dark: "#1D4ED8",
+    light: "#E3F2FD",
+    main: "#2196F3",
+    dark: "#1976D2",
   },
 
-  // Background Colors
+  // Background Colors - Updated to match screenshot
   background: {
-    primary: "#FFFFFF", // Main app background
-    secondary: "#FAFAF9", // Card backgrounds
-    tertiary: "#F5F5F4", // Input backgrounds
-    accent: "#FFF7ED", // Highlighted sections
-    card: "#FAFAF9", // Alias for secondary - commonly used
+    primary: "#FAF8F4", // Main app background (from screenshot)
+    secondary: "#FFFFFF", // Card backgrounds
+    tertiary: "#F5F2EE", // Input backgrounds
+    accent: "#FFF7F1", // Highlighted sections
+    card: "#FFFFFF", // White card backgrounds for contrast
   },
 
-  // Text Colors
+  // Text Colors - High contrast for readability
   text: {
-    primary: "#1C1917", // Main text
-    secondary: "#44403C", // Secondary text
-    tertiary: "#78716C", // Muted text
-    muted: "#78716C", // Alias for tertiary
+    primary: "#171717", // Main text - very dark for contrast
+    secondary: "#404040", // Secondary text - dark gray
+    tertiary: "#737373", // Muted text - medium gray
+    muted: "#A1A1A1", // Very muted text
     inverse: "#FFFFFF", // Text on dark backgrounds
     onPrimary: "#FFFFFF", // Text on primary color backgrounds
-    accent: "#FF6B35", // Accent text (brand color)
+    accent: "#EB6423", // Accent text (brand color)
   },
 
-  // Border Colors
+  // Border Colors - Updated to match screenshot
   border: {
-    light: "#E7E5E4", // Light borders
-    medium: "#D6D3D1", // Medium borders
-    dark: "#A8A29E", // Dark borders
-    accent: "#FF6B35", // Accent borders
-    default: "#D6D3D1", // Default border color
-    subtle: "#E7E5E4", // Subtle borders
+    light: "#F5F2EE", // Very light borders
+    medium: "#E4E4E4", // Medium borders (stroke from screenshot)
+    dark: "#D1D1D1", // Dark borders
+    accent: "#EB6423", // Accent borders
+    default: "#E4E4E4", // Default border color (from screenshot)
+    subtle: "#F5F2EE", // Subtle borders
   },
 
   // Special Colors for Gamification
   gamification: {
-    xp: "#F59E0B", // XP points color
+    xp: "#FFB020", // XP points color
     level: "#8B5CF6", // Level indicators
-    streak: "#EF4444", // Streak indicators
-    achievement: "#10B981", // Achievement badges
+    streak: "#F44336", // Streak indicators
+    achievement: "#4CAF50", // Achievement badges (green from screenshot)
   },
 
   // Calendar and Schedule Colors
   schedule: {
     work: "#3B82F6", // Work tasks
-    personal: "#10B981", // Personal tasks
+    personal: "#4CAF50", // Personal tasks (green from screenshot)
     fitness: "#EF4444", // Fitness activities
     learning: "#8B5CF6", // Learning/education
     social: "#F59E0B", // Social activities
-    break: "#6B7280", // Break time
+    break: "#737373", // Break time
   },
 
   // Transparency Overlays
@@ -133,7 +133,15 @@ export const Colors = {
     light: "rgba(0, 0, 0, 0.1)",
     medium: "rgba(0, 0, 0, 0.3)",
     dark: "rgba(0, 0, 0, 0.7)",
-    accent: "rgba(255, 107, 53, 0.1)",
+    accent: "rgba(235, 100, 35, 0.1)", // Updated with new primary color
+  },
+
+  // Glass Effect Colors
+  glass: {
+    background: "rgba(255, 255, 255, 0.25)",
+    border: "rgba(255, 255, 255, 0.18)",
+    shadow: "rgba(0, 0, 0, 0.1)",
+    blur: "rgba(255, 255, 255, 0.15)",
   },
 } as const;
 
@@ -178,5 +186,10 @@ export const ColorCombinations = {
     text: Colors.text.primary,
     border: Colors.border.default,
     focusBorder: Colors.primary.main,
+  },
+  glass: {
+    background: Colors.glass.background,
+    border: Colors.glass.border,
+    shadow: Colors.glass.shadow,
   },
 } as const;
