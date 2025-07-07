@@ -57,9 +57,8 @@ class AuthService {
         return { user: null, session: null, error };
       }
 
-      // Don't create profile immediately - let auth state change handle it
       console.log(
-        "✅ User authentication created, profile will be created on auth state change"
+        "✅ User authentication created, profile will be created automatically"
       );
 
       return {
@@ -205,13 +204,20 @@ class AuthService {
   }
 
   /**
-   * Create user profile in database (public)
+   * Create user profile in database (kept for manual creation if needed)
    */
   async createUserProfile(
     user: User,
     fullName?: string
   ): Promise<{ error: any | null }> {
     try {
+      // Check if profile already exists
+      const existingProfile = await this.getUserProfile(user.id);
+      if (existingProfile) {
+        console.log("Profile already exists, skipping creation");
+        return { error: null };
+      }
+
       const { error } = await supabase.from("users").insert({
         id: user.id,
         email: user.email!,
@@ -271,16 +277,16 @@ class AuthService {
         .from("users")
         .select(
           `
-        id,
-        email,
-        full_name,
-        avatar_url,
-        onboarding_completed,
-        onboarding_step,
-        xp_total,
-        current_level,
-        current_streak
-      `
+          id,
+          email,
+          full_name,
+          avatar_url,
+          onboarding_completed,
+          onboarding_step,
+          xp_total,
+          current_level,
+          current_streak
+        `
         )
         .eq("id", userId)
         .maybeSingle(); // Use maybeSingle() instead of single()
