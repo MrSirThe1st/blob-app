@@ -1,3 +1,4 @@
+// src/components/navigation/AuthNavigator.tsx
 import { Colors, Typography } from "@/constants";
 import { useAuth } from "@/hooks/useAuth";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
@@ -13,11 +14,12 @@ import GoalsScreen from "@/screens/main/GoalsScreen";
 import HomeScreen from "@/screens/main/HomeScreen";
 import InsightsScreen from "@/screens/main/InsightsScreen";
 import TodayScreen from "@/screens/main/TodayScreen";
-import OnboardingScreen from "@/screens/onboarding/OnboardingScreen";
+
+// Import new onboarding navigator
+import OnboardingNavigator from "./OnboardingNavigator";
 
 const AuthStack = createNativeStackNavigator();
 const MainTabs = createBottomTabNavigator();
-const OnboardingStack = createNativeStackNavigator();
 
 // Loading Component
 const LoadingScreen = () => (
@@ -49,13 +51,6 @@ const AuthStackNavigator = () => (
     <AuthStack.Screen name="Login" component={LoginScreen} />
     <AuthStack.Screen name="Signup" component={SignupScreen} />
   </AuthStack.Navigator>
-);
-
-// Onboarding Stack Navigator
-const OnboardingStackNavigator = () => (
-  <OnboardingStack.Navigator screenOptions={{ headerShown: false }}>
-    <OnboardingStack.Screen name="Onboarding" component={OnboardingScreen} />
-  </OnboardingStack.Navigator>
 );
 
 // Main App Tabs
@@ -151,7 +146,7 @@ const AuthNavigator = () => {
     if (userProfile.onboardingCompleted === false) {
       // User authenticated but onboarding not complete -> Show onboarding
       console.log("🎯 AuthNavigator: Showing onboarding (not completed)");
-      return <OnboardingStackNavigator />;
+      return <OnboardingNavigator />;
     }
 
     // User authenticated and onboarding complete -> Show main app
