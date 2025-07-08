@@ -1,24 +1,11 @@
 // src/screens/onboarding/EnergyPatternScreen.tsx
 import React, { useState } from "react";
-import {
-  SafeAreaView,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-  Animated,
-} from "react-native";
+import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useNavigation } from "@react-navigation/native";
-import {
-  Colors,
-  Typography,
-  Spacing,
-  BorderRadius,
-  Padding,
-} from "@/constants";
+import { Colors, Typography, Spacing, BorderRadius } from "@/constants";
 import { OnboardingStackParamList } from "@/components/navigation/OnboardingNavigator";
+import OnboardingPageLayout from "@/components/onboarding/OnboardingPageLayout";
 
 type NavigationProp = NativeStackNavigationProp<
   OnboardingStackParamList,
@@ -29,7 +16,6 @@ interface EnergyOption {
   id: "morning" | "evening" | "afternoon";
   icon: string;
   title: string;
-  description: string;
 }
 
 const energyOptions: EnergyOption[] = [
@@ -37,184 +23,108 @@ const energyOptions: EnergyOption[] = [
     id: "morning",
     icon: "🌅",
     title: "Morning person",
-    description: "I naturally feel most energetic and focused",
   },
   {
     id: "evening",
     icon: "🌙",
     title: "Evening person",
-    description: "I naturally feel most energetic and focused",
   },
   {
     id: "afternoon",
     icon: "☀️",
     title: "Afternoon person",
-    description: "I naturally feel most energetic and focused",
   },
 ];
 
 const EnergyPatternScreen = () => {
   const navigation = useNavigation<NavigationProp>();
   const [selectedOption, setSelectedOption] = useState<string>("");
-  const [buttonScale] = useState(new Animated.Value(1));
 
   const handleOptionSelect = (optionId: string) => {
     setSelectedOption(optionId);
   };
 
-  const handleContinue = () => {
-    if (!selectedOption) return;
-
-    // Animate button press
-    Animated.sequence([
-      Animated.timing(buttonScale, {
-        toValue: 0.95,
-        duration: 100,
-        useNativeDriver: true,
-      }),
-      Animated.timing(buttonScale, {
-        toValue: 1,
-        duration: 100,
-        useNativeDriver: true,
-      }),
-    ]).start();
-
-    // TODO: Save energy pattern to user profile
+  const handleContinue = (additionalInput?: string) => {
+    // Save energy pattern and additional input to user profile
     console.log("Selected energy pattern:", selectedOption);
+    if (additionalInput) {
+      console.log("Additional user input:", additionalInput);
+    }
 
     // Navigate to next screen
-    setTimeout(() => {
-      navigation.navigate("Personality");
-    }, 200);
+    navigation.navigate("Personality");
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <ScrollView
-        style={styles.scrollView}
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.scrollContent}
-      >
-        {/* Header */}
-        <View style={styles.header}>
-          <Text style={styles.title}>Energy Pattern</Text>
-          <Text style={styles.subtitle}>
-            What do you naturally feel most energetic and focused?
-          </Text>
-        </View>
-
-        {/* Options */}
-        <View style={styles.optionsContainer}>
-          {energyOptions.map((option) => (
-            <TouchableOpacity
-              key={option.id}
+    <OnboardingPageLayout
+      title="Energy Pattern"
+      subtitle="When do you naturally feel most energetic and focused?"
+      onContinue={handleContinue}
+      // No onBack prop - this is the first screen
+      canContinue={!!selectedOption}
+      inputPlaceholder="energy pattern/ anything more that you'd like to share"
+    >
+      <View style={styles.optionsContainer}>
+        {energyOptions.map((option) => (
+          <TouchableOpacity
+            key={option.id}
+            style={[
+              styles.optionButton,
+              selectedOption === option.id && styles.optionButtonSelected,
+            ]}
+            onPress={() => handleOptionSelect(option.id)}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.optionIcon}>{option.icon}</Text>
+            <View style={styles.optionContent}>
+              <Text style={styles.optionTitle}>{option.title}</Text>
+            </View>
+            <View
               style={[
-                styles.optionCard,
-                selectedOption === option.id && styles.optionCardSelected,
+                styles.selectionIndicator,
+                selectedOption === option.id && styles.selectionIndicatorActive,
               ]}
-              onPress={() => handleOptionSelect(option.id)}
-              activeOpacity={0.7}
             >
-              <Text style={styles.optionIcon}>{option.icon}</Text>
-              <View style={styles.optionContent}>
-                <Text style={styles.optionTitle}>{option.title}</Text>
-                <Text style={styles.optionDescription}>
-                  {option.description}
-                </Text>
-              </View>
-
-              {/* Selection indicator */}
-              <View
-                style={[
-                  styles.selectionIndicator,
-                  selectedOption === option.id &&
-                    styles.selectionIndicatorActive,
-                ]}
-              >
-                {selectedOption === option.id && (
-                  <View style={styles.selectionDot} />
-                )}
-              </View>
-            </TouchableOpacity>
-          ))}
-        </View>
-
-        {/* Continue Button */}
-        <View style={styles.buttonContainer}>
-          <Animated.View style={[{ transform: [{ scale: buttonScale }] }]}>
-            <TouchableOpacity
-              style={[
-                styles.continueButton,
-                !selectedOption && styles.continueButtonDisabled,
-              ]}
-              onPress={handleContinue}
-              disabled={!selectedOption}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.continueButtonText}>Continue</Text>
-            </TouchableOpacity>
-          </Animated.View>
-        </View>
-      </ScrollView>
-    </SafeAreaView>
+              {selectedOption === option.id && (
+                <View style={styles.selectionDot} />
+              )}
+            </View>
+          </TouchableOpacity>
+        ))}
+      </View>
+    </OnboardingPageLayout>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: Colors.background.primary,
-  },
-  scrollView: {
-    flex: 1,
-  },
-  scrollContent: {
-    flexGrow: 1,
-    paddingHorizontal: Spacing.lg,
-    paddingTop: Spacing["2xl"],
-    paddingBottom: Spacing.xl,
-  },
-  header: {
-    marginBottom: Spacing["3xl"],
-    alignItems: "center",
-  },
-  title: {
-    ...Typography.h1,
-    color: Colors.text.primary,
-    textAlign: "center",
-    marginBottom: Spacing.md,
-  },
-  subtitle: {
-    ...Typography.bodyLarge,
-    color: Colors.text.secondary,
-    textAlign: "center",
-    lineHeight: 24,
-    paddingHorizontal: Spacing.md,
-  },
   optionsContainer: {
-    flex: 1,
     gap: Spacing.md,
   },
-  optionCard: {
-    backgroundColor: Colors.background.secondary,
+  optionButton: {
+    backgroundColor: Colors.background.card,
     borderRadius: BorderRadius.blob.medium,
-    padding: Spacing.lg,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.lg,
     flexDirection: "row",
     alignItems: "center",
     borderWidth: 2,
-    borderColor: "transparent",
-    shadowColor: Colors.glass.shadow,
+    borderColor: Colors.border.light,
+    shadowColor: Colors.neutral.dark,
     shadowOffset: {
       width: 0,
       height: 2,
     },
-    shadowOpacity: 0.1,
+    shadowOpacity: 0.05,
     shadowRadius: 4,
     elevation: 2,
   },
-  optionCardSelected: {
+  optionButtonSelected: {
     borderColor: Colors.primary.main,
-    backgroundColor: Colors.background.accent,
+    backgroundColor: Colors.primary.light,
+    shadowColor: Colors.primary.main,
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 4,
   },
   optionIcon: {
     fontSize: 32,
@@ -227,11 +137,6 @@ const styles = StyleSheet.create({
     ...Typography.h3,
     color: Colors.text.primary,
     marginBottom: Spacing.xs,
-  },
-  optionDescription: {
-    ...Typography.bodyMedium,
-    color: Colors.text.secondary,
-    lineHeight: 20,
   },
   selectionIndicator: {
     width: 24,
@@ -252,35 +157,6 @@ const styles = StyleSheet.create({
     height: 8,
     borderRadius: 4,
     backgroundColor: Colors.text.onPrimary,
-  },
-  buttonContainer: {
-    marginTop: Spacing["2xl"],
-    alignItems: "center",
-  },
-  continueButton: {
-    backgroundColor: Colors.primary.main,
-    paddingHorizontal: Padding.button.large.horizontal,
-    paddingVertical: Padding.button.large.vertical,
-    borderRadius: BorderRadius.lg,
-    minWidth: 200,
-    alignItems: "center",
-    shadowColor: Colors.primary.main,
-    shadowOffset: {
-      width: 0,
-      height: 4,
-    },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  continueButtonDisabled: {
-    backgroundColor: Colors.neutral.light,
-    shadowOpacity: 0,
-    elevation: 0,
-  },
-  continueButtonText: {
-    ...Typography.buttonLarge,
-    color: Colors.text.onPrimary,
   },
 });
 
