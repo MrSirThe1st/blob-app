@@ -11,6 +11,7 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from "react-native";
+import { MaterialIcons } from "@expo/vector-icons";
 import { Colors, Typography, Spacing, BorderRadius } from "@/constants";
 
 interface OnboardingPageLayoutProps {
@@ -78,7 +79,11 @@ const OnboardingPageLayout: React.FC<OnboardingPageLayoutProps> = ({
               onPress={handleBack}
               activeOpacity={0.7}
             >
-              <Text style={styles.backIcon}>←</Text>
+              <MaterialIcons
+                name="arrow-back"
+                size={24}
+                color={Colors.text.onPrimary}
+              />
             </TouchableOpacity>
           )}
 
@@ -104,7 +109,11 @@ const OnboardingPageLayout: React.FC<OnboardingPageLayoutProps> = ({
               onPress={handleContinue}
               activeOpacity={0.7}
             >
-              <Text style={styles.navIcon}>{hasInput ? "✓" : "→"}</Text>
+              <MaterialIcons
+                name={hasInput ? "check" : "arrow-forward"}
+                size={20}
+                color={Colors.text.onPrimary}
+              />
             </TouchableOpacity>
           </View>
         </View>
@@ -130,62 +139,78 @@ const styles = StyleSheet.create({
     paddingTop: Spacing.xl,
   },
   header: {
-    marginBottom: Spacing["2xl"],
+    marginBottom: Spacing.xl,
+    paddingHorizontal: Spacing.md,
   },
   title: {
     ...Typography.h1,
     color: Colors.text.primary,
     marginBottom: Spacing.md,
+    textAlign: "left",
+    fontWeight: "700",
   },
   subtitle: {
     ...Typography.bodyLarge,
     color: Colors.text.secondary,
-    lineHeight: 24,
+    lineHeight: 26,
+    textAlign: "left",
   },
   content: {
     flex: 1,
     justifyContent: "center",
-    minHeight: 400,
+    minHeight: 300,
   },
 
-  // Bottom Bar with Combined Input + Navigation
+  // Bottom Bar with Combined Input + Navigation - Updated styling
   bottomBar: {
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: Spacing.lg,
-    paddingVertical: Spacing.md,
-    paddingBottom: Platform.OS === "ios" ? Spacing.xl : Spacing.md,
+    paddingVertical: Spacing.lg,
+    paddingBottom: Platform.OS === "ios" ? Spacing["2xl"] : Spacing.lg,
     backgroundColor: Colors.background.primary,
-    gap: Spacing.sm,
+    gap: Spacing.md,
   },
 
   backButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
     backgroundColor: Colors.primary.main,
     alignItems: "center",
     justifyContent: "center",
+    shadowColor: Colors.primary.main,
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.2,
+    shadowRadius: 12,
+    elevation: 6,
   },
 
-  backIcon: {
-    fontSize: 18,
-    color: Colors.text.onPrimary,
-    fontWeight: "600",
-  },
-
-  // Combined Input + Navigation Component
+  // Combined Input + Navigation Component - Improved styling
   inputNavContainer: {
     flex: 1,
-    height: 44,
-    backgroundColor: Colors.background.secondary,
-    borderRadius: 22,
+    height: 56,
+    backgroundColor: "rgba(255, 255, 255, 0.9)", // Glassy effect
+    borderRadius: 28,
     borderWidth: 1,
-    borderColor: Colors.border.light,
+    borderColor: "rgba(228, 228, 228, 0.6)",
     flexDirection: "row",
     alignItems: "center",
     paddingLeft: Spacing.lg,
     paddingRight: Spacing.xs,
+    shadowColor: "rgba(0, 0, 0, 0.1)",
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 3,
+    // Glassy backdrop effect
+    backdropFilter: "blur(10px)",
   },
 
   textInput: {
@@ -195,27 +220,31 @@ const styles = StyleSheet.create({
     height: "100%",
     paddingVertical: 0,
     textAlignVertical: "center",
+    fontSize: 16,
   },
 
-  // Arrow/Checkmark Button INSIDE the input
+  // Arrow/Checkmark Button INSIDE the input - Enhanced styling
   navButtonInside: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     backgroundColor: Colors.primary.main,
     alignItems: "center",
     justifyContent: "center",
-    marginLeft: Spacing.xs,
+    marginLeft: Spacing.sm,
+    shadowColor: Colors.primary.main,
+    shadowOffset: {
+      width: 0,
+      height: 3,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 6,
+    elevation: 4,
   },
 
   submitButtonInside: {
-    backgroundColor: Colors.success || Colors.primary.main,
-  },
-
-  navIcon: {
-    fontSize: 16,
-    color: Colors.text.onPrimary,
-    fontWeight: "600",
+    backgroundColor: Colors.success || "#4CAF50",
+    shadowColor: Colors.success || "#4CAF50",
   },
 });
 

@@ -16,6 +16,7 @@ interface EnergyOption {
   id: "morning" | "evening" | "afternoon";
   icon: string;
   title: string;
+  description: string;
 }
 
 const energyOptions: EnergyOption[] = [
@@ -23,16 +24,19 @@ const energyOptions: EnergyOption[] = [
     id: "morning",
     icon: "🌅",
     title: "Morning person",
+    description: "I naturally feel most energetic and focused",
   },
   {
     id: "evening",
     icon: "🌙",
     title: "Evening person",
+    description: "I naturally feel most energetic and focused",
   },
   {
     id: "afternoon",
     icon: "☀️",
     title: "Afternoon person",
+    description: "I naturally feel most energetic and focused",
   },
 ];
 
@@ -78,6 +82,7 @@ const EnergyPatternScreen = () => {
             <Text style={styles.optionIcon}>{option.icon}</Text>
             <View style={styles.optionContent}>
               <Text style={styles.optionTitle}>{option.title}</Text>
+              <Text style={styles.optionDescription}>{option.description}</Text>
             </View>
             <View
               style={[
@@ -99,32 +104,28 @@ const EnergyPatternScreen = () => {
 const styles = StyleSheet.create({
   optionsContainer: {
     gap: Spacing.md,
+    paddingHorizontal: Spacing.md,
   },
   optionButton: {
-    backgroundColor: Colors.background.card,
+    backgroundColor: Colors.background.secondary,
     borderRadius: BorderRadius.blob.medium,
-    paddingHorizontal: Spacing.lg,
-    paddingVertical: Spacing.lg,
+    padding: Spacing.lg,
     flexDirection: "row",
     alignItems: "center",
     borderWidth: 2,
-    borderColor: Colors.border.light,
+    borderColor: "transparent",
     shadowColor: Colors.neutral.dark,
     shadowOffset: {
       width: 0,
       height: 2,
     },
-    shadowOpacity: 0.05,
+    shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 2,
   },
   optionButtonSelected: {
     borderColor: Colors.primary.main,
-    backgroundColor: Colors.primary.light,
-    shadowColor: Colors.primary.main,
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    elevation: 4,
+    backgroundColor: Colors.background.accent,
   },
   optionIcon: {
     fontSize: 32,
@@ -137,6 +138,11 @@ const styles = StyleSheet.create({
     ...Typography.h3,
     color: Colors.text.primary,
     marginBottom: Spacing.xs,
+  },
+  optionDescription: {
+    ...Typography.bodyMedium,
+    color: Colors.text.secondary,
+    lineHeight: 20,
   },
   selectionIndicator: {
     width: 24,
