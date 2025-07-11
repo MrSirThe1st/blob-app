@@ -59,6 +59,10 @@ const CalendarConnectionScreen = () => {
     useState<ConnectionStatus>("idle");
   const [showSkipConfirmation, setShowSkipConfirmation] = useState(false);
 
+  const handleBack = () => {
+    navigation.goBack();
+  };
+
   const handleConnect = async (providerId: string) => {
     setSelectedProvider(providerId);
     setConnectionStatus("connecting");
@@ -296,14 +300,12 @@ const SkipConfirmation: React.FC<SkipConfirmationProps> = ({
         Without your calendar, Blob might schedule tasks when you're busy. You
         can always connect later in settings.
       </Text>
-
       <View style={styles.skipConfirmationActions}>
         <TouchableOpacity style={styles.cancelSkipButton} onPress={onCancel}>
           <Text style={styles.cancelSkipText}>Go Back</Text>
         </TouchableOpacity>
-
         <TouchableOpacity style={styles.confirmSkipButton} onPress={onConfirm}>
-          <Text style={styles.confirmSkipText}>Skip Anyway</Text>
+          <Text style={styles.confirmSkipText}>Skip</Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -317,7 +319,7 @@ const styles = StyleSheet.create({
 
   providersContainer: {
     gap: Spacing.md,
-    marginBottom: Spacing.xl,
+    marginBottom: Spacing.lg,
   },
 
   providerCardContainer: {
@@ -331,16 +333,23 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: Colors.border.light,
     shadowColor: Colors.neutral[200],
-    shadowOffset: { width: 0, height: 4 },
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
     shadowOpacity: 0.1,
     shadowRadius: 12,
     elevation: 6,
     position: "relative",
+    overflow: "hidden",
   },
 
   selectedProviderCard: {
     borderColor: Colors.primary.main,
     backgroundColor: Colors.background.accent,
+    shadowColor: Colors.primary.main,
+    shadowOpacity: 0.2,
+    elevation: 8,
   },
 
   connectedProviderCard: {
@@ -350,37 +359,31 @@ const styles = StyleSheet.create({
 
   popularBadge: {
     position: "absolute",
-    top: -8,
-    right: Spacing.md,
+    top: -1,
+    right: -1,
     backgroundColor: Colors.primary.main,
-    paddingHorizontal: Spacing.sm,
+    paddingHorizontal: 8,
     paddingVertical: 4,
-    borderRadius: 12,
-    shadowColor: Colors.primary.main,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    elevation: 3,
+    borderTopRightRadius: BorderRadius.blob.medium,
+    borderBottomLeftRadius: 8,
   },
 
   popularText: {
     ...Typography.captionSmall,
     color: Colors.text.onPrimary,
     fontWeight: "600",
-    fontSize: 10,
   },
 
   providerInfo: {
     flexDirection: "row",
     alignItems: "center",
-    flex: 1,
-    marginBottom: Spacing.sm,
+    marginBottom: Spacing.md,
   },
 
   providerIconContainer: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     backgroundColor: Colors.background.primary,
     justifyContent: "center",
     alignItems: "center",
@@ -410,22 +413,21 @@ const styles = StyleSheet.create({
   providerDescription: {
     ...Typography.bodySmall,
     color: Colors.text.secondary,
-    lineHeight: 18,
+    lineHeight: 16,
   },
 
   statusContainer: {
     alignItems: "center",
-    minHeight: 40,
-    justifyContent: "center",
   },
 
   loadingIndicator: {
+    flexDirection: "row",
     alignItems: "center",
-    gap: Spacing.xs,
+    gap: 8,
   },
 
   connectingText: {
-    ...Typography.captionMedium,
+    ...Typography.bodyMedium,
     color: Colors.primary.main,
     fontWeight: "500",
   },
@@ -433,11 +435,11 @@ const styles = StyleSheet.create({
   connectedIndicator: {
     flexDirection: "row",
     alignItems: "center",
-    gap: Spacing.xs,
+    gap: 8,
   },
 
   connectedText: {
-    ...Typography.captionMedium,
+    ...Typography.bodyMedium,
     color: Colors.success.main,
     fontWeight: "600",
   },
@@ -448,26 +450,26 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.primary.main,
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.sm,
-    borderRadius: 20,
-    gap: Spacing.xs,
+    borderRadius: BorderRadius.md,
+    gap: 4,
   },
 
   connectButtonText: {
-    ...Typography.captionMedium,
+    ...Typography.buttonSmall,
     color: Colors.text.onPrimary,
     fontWeight: "600",
   },
 
   benefitsSection: {
-    marginBottom: Spacing.xl,
+    marginBottom: Spacing.lg,
   },
 
   benefitsCard: {
-    backgroundColor: Colors.glass.background,
+    backgroundColor: Colors.background.secondary,
     borderRadius: BorderRadius.blob.small,
     padding: Spacing.lg,
     borderWidth: 1,
-    borderColor: Colors.glass.border,
+    borderColor: Colors.border.subtle,
   },
 
   benefitsTitle: {
@@ -483,14 +485,13 @@ const styles = StyleSheet.create({
 
   benefitItem: {
     flexDirection: "row",
-    alignItems: "center",
+    alignItems: "flex-start",
     gap: Spacing.sm,
   },
 
   benefitIcon: {
-    fontSize: 18,
-    width: 24,
-    textAlign: "center",
+    fontSize: 16,
+    marginTop: 2,
   },
 
   benefitText: {

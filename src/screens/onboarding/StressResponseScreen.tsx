@@ -1,11 +1,5 @@
 import React, { useState } from "react";
-import {
-  View,
-  Text,
-  TouchableOpacity,
-  StyleSheet,
-  Animated,
-} from "react-native";
+import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useNavigation } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
@@ -87,7 +81,7 @@ const StressResponseScreen = () => {
       subtitle="When you're overwhelmed, what helps you most? This helps Blob adapt when you need support."
       onBack={handleBack}
       onContinue={handleContinue}
-      canContinue={!!selectedOption}
+      canContinue={!!selectedOption} // <-- This was the missing piece!
       inputPlaceholder="stress response/ anything more that you'd like to share"
     >
       <View style={styles.optionsContainer}>
@@ -100,19 +94,6 @@ const StressResponseScreen = () => {
           />
         ))}
       </View>
-
-      {selectedOption && (
-        <View style={styles.selectionFeedback}>
-          <View style={styles.feedbackCard}>
-            <Text style={styles.feedbackTitle}>
-              Perfect! Here's how Blob will help you:
-            </Text>
-            <Text style={styles.feedbackText}>
-              {getFeedbackText(selectedOption)}
-            </Text>
-          </View>
-        </View>
-      )}
     </OnboardingPageLayout>
   );
 };
@@ -135,7 +116,6 @@ const StressResponseCard: React.FC<StressResponseCardProps> = ({
         onPress={onSelect}
         activeOpacity={0.8}
       >
-        {/* Selection Indicator */}
         <View style={styles.cardHeader}>
           <View style={styles.emojiContainer}>
             <Text style={styles.emoji}>{option.emoji}</Text>
@@ -156,31 +136,16 @@ const StressResponseCard: React.FC<StressResponseCardProps> = ({
           </View>
         </View>
 
-        {/* Card Content */}
         <View style={styles.cardContent}>
           <Text style={styles.optionTitle}>{option.title}</Text>
           <Text style={styles.optionSubtitle}>{option.subtitle}</Text>
           <Text style={styles.optionDescription}>{option.description}</Text>
         </View>
 
-        {/* Glass Effect Overlay */}
         {isSelected && <View style={styles.glassOverlay} />}
       </TouchableOpacity>
     </View>
   );
-};
-
-const getFeedbackText = (option: string): string => {
-  switch (option) {
-    case "reduce":
-      return "When Blob detects you're overwhelmed, it will automatically reduce your task load, suggest longer breaks, and extend deadlines to give you breathing room.";
-    case "structure":
-      return "When you're stressed, Blob will break down complex tasks into smaller steps, provide detailed schedules, and offer clear priorities to help you focus.";
-    case "support":
-      return "During tough times, Blob will check in on you more frequently, connect you with your buddy, and provide extra encouragement to keep you motivated.";
-    default:
-      return "";
-  }
 };
 
 const styles = StyleSheet.create({
@@ -294,33 +259,6 @@ const styles = StyleSheet.create({
     bottom: 0,
     backgroundColor: "rgba(235, 100, 35, 0.05)",
     borderRadius: BorderRadius.blob.medium,
-  },
-
-  selectionFeedback: {
-    marginTop: Spacing.lg,
-    marginBottom: Spacing.xl,
-  },
-
-  feedbackCard: {
-    backgroundColor: Colors.glass.background,
-    borderRadius: BorderRadius.blob.small,
-    padding: Spacing.lg,
-    borderWidth: 1,
-    borderColor: Colors.glass.border,
-    backdropFilter: "blur(10px)",
-  },
-
-  feedbackTitle: {
-    ...Typography.h4,
-    color: Colors.text.primary,
-    marginBottom: Spacing.sm,
-    fontWeight: "600",
-  },
-
-  feedbackText: {
-    ...Typography.bodyMedium,
-    color: Colors.text.secondary,
-    lineHeight: 24,
   },
 });
 

@@ -6,7 +6,7 @@ import CalendarConnectionScreen from "@/screens/onboarding/CalendarConnectionScr
 import EnergyPatternScreen from "@/screens/onboarding/EnergyPatternScreen";
 import OpenConversationScreen from "@/screens/onboarding/OpenConversationScreen";
 import PersonalityScreen from "@/screens/onboarding/PersonalityScreen";
-import StressResponseScreen from "@/screens/onboarding/StreesResponseScreen";
+import StressResponseScreen from "@/screens/onboarding/StressResponseScreen";
 import WorkStyleScreen from "@/screens/onboarding/WorkStyleScreen";
 
 export type OnboardingStackParamList = {
