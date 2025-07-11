@@ -1,18 +1,19 @@
 // src/components/navigation/OnboardingNavigator.tsx
-import React from "react";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 
 // Import onboarding screens
+import CalendarConnectionScreen from "@/screens/onboarding/CalendarConnectionScreen";
 import EnergyPatternScreen from "@/screens/onboarding/EnergyPatternScreen";
-import PersonalityScreen from "@/screens/onboarding/PersonalityScreen";
-import { WorkStyleScreen } from "@/screens/onboarding/WorkStyleScreen";
-import { CalendarConnectionScreen } from "@/screens/onboarding/CalendarConnectionScreen";
 import { OpenConversationScreen } from "@/screens/onboarding/OpenConversationScreen";
+import PersonalityScreen from "@/screens/onboarding/PersonalityScreen";
+import StressResponseScreen from "@/screens/onboarding/StreesResponseScreen";
+import { WorkStyleScreen } from "@/screens/onboarding/WorkStyleScreen";
 
 export type OnboardingStackParamList = {
   EnergyPattern: undefined;
   Personality: undefined;
   WorkStyle: undefined;
+  StressResponse: undefined;
   CalendarConnection: undefined;
   OpenConversation: undefined;
 };
@@ -37,6 +38,10 @@ const OnboardingNavigator = () => {
         component={PersonalityScreen}
       />
       <OnboardingStack.Screen name="WorkStyle" component={WorkStyleScreen} />
+      <OnboardingStack.Screen
+        name="StressResponse"
+        component={StressResponseScreen}
+      />
       <OnboardingStack.Screen
         name="CalendarConnection"
         component={CalendarConnectionScreen}

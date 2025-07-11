@@ -57,7 +57,7 @@ export const WorkStyleScreen = () => {
     }
 
     // Navigate to next screen
-    navigation.navigate("CalendarConnection");
+    navigation.navigate("StressResponse");
   };
 
   const handleBack = () => {
