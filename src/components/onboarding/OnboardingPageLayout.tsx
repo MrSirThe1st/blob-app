@@ -72,23 +72,19 @@ const OnboardingPageLayout: React.FC<OnboardingPageLayoutProps> = ({
 
         {/* Bottom Input Bar */}
         <View style={styles.bottomBar}>
-          {/* Back Button - only show if onBack is provided */}
-          {onBack && (
-            <TouchableOpacity
-              style={styles.backButton}
-              onPress={handleBack}
-              activeOpacity={0.7}
-            >
-              <MaterialIcons
-                name="arrow-back"
-                size={24}
-                color={Colors.text.onPrimary}
-              />
-            </TouchableOpacity>
-          )}
-
-          {/* Combined Input + Navigation Component */}
+          {/* Combined Input + Navigation Component with both buttons inside */}
           <View style={styles.inputNavContainer}>
+            {/* Back Button INSIDE the input on the left */}
+            {onBack && (
+              <TouchableOpacity
+                style={styles.backButtonInside}
+                onPress={handleBack}
+                activeOpacity={0.7}
+              >
+                <MaterialIcons name="arrow-back" size={20} color="#FFFFFF" />
+              </TouchableOpacity>
+            )}
+
             <TextInput
               style={styles.textInput}
               placeholder={inputPlaceholder}
@@ -100,7 +96,7 @@ const OnboardingPageLayout: React.FC<OnboardingPageLayoutProps> = ({
               onSubmitEditing={handleContinue}
             />
 
-            {/* Arrow/Checkmark Button Inside Input */}
+            {/* Arrow/Checkmark Button INSIDE the input on the right */}
             <TouchableOpacity
               style={[
                 styles.navButtonInside,
@@ -112,7 +108,7 @@ const OnboardingPageLayout: React.FC<OnboardingPageLayoutProps> = ({
               <MaterialIcons
                 name={hasInput ? "check" : "arrow-forward"}
                 size={20}
-                color={Colors.text.onPrimary}
+                color="#FFFFFF"
               />
             </TouchableOpacity>
           </View>
@@ -221,6 +217,7 @@ const styles = StyleSheet.create({
     paddingVertical: 0,
     textAlignVertical: "center",
     fontSize: 16,
+    paddingHorizontal: Spacing.md,
   },
 
   // Arrow/Checkmark Button INSIDE the input - Enhanced styling
@@ -228,11 +225,28 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: Colors.primary.main,
+    backgroundColor: "#EB6423", // Hardcoded orange to ensure visibility
     alignItems: "center",
     justifyContent: "center",
     marginLeft: Spacing.sm,
-    shadowColor: Colors.primary.main,
+    shadowColor: "#EB6423",
+    shadowOffset: {
+      width: 0,
+      height: 3,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 6,
+    elevation: 4,
+  },
+  backButtonInside: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: "#EB6423",
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: Spacing.sm,
+    shadowColor: "#EB6423",
     shadowOffset: {
       width: 0,
       height: 3,
@@ -243,8 +257,8 @@ const styles = StyleSheet.create({
   },
 
   submitButtonInside: {
-    backgroundColor: Colors.success || "#4CAF50",
-    shadowColor: Colors.success || "#4CAF50",
+    backgroundColor: "#4CAF50", // Hardcoded green to ensure visibility
+    shadowColor: "#4CAF50",
   },
 });
 

@@ -56,7 +56,7 @@ const EnergyPatternScreen = () => {
     }
 
     // Navigate to next screen
-    navigation.navigate("Personality");
+    navigation.navigate("WorkStyle");
   };
 
   return (
