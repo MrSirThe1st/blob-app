@@ -1,23 +1,16 @@
 import React, { useState } from "react";
-import {
-  View,
-  Text,
-  TouchableOpacity,
-  StyleSheet,
-  SafeAreaView,
-  Animated,
-  Alert,
-} from "react-native";
-import { useRouter } from "expo-router";
+import { View, Text, TouchableOpacity, StyleSheet, Alert } from "react-native";
+import { NativeStackNavigationProp } from "@react-navigation/native-stack";
+import { useNavigation } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
-import {
-  Colors,
-  Typography,
-  Spacing,
-  BorderRadius,
-  Padding,
-} from "@/constants";
+import { Colors, Typography, Spacing, BorderRadius } from "@/constants";
 import OnboardingPageLayout from "@/components/onboarding/OnboardingPageLayout";
+import { OnboardingStackParamList } from "@/components/navigation/OnboardingNavigator";
+
+type NavigationProp = NativeStackNavigationProp<
+  OnboardingStackParamList,
+  "CalendarConnection"
+>;
 
 interface CalendarProvider {
   id: string;
@@ -34,7 +27,7 @@ const calendarProviders: CalendarProvider[] = [
     id: "google",
     name: "Google Calendar",
     displayName: "Google Calendar",
-    icon: "🔴", // Google icon placeholder
+    icon: "🔴",
     color: "#4285F4",
     description: "Most popular choice • Easy sync",
     isPopular: true,
@@ -43,7 +36,7 @@ const calendarProviders: CalendarProvider[] = [
     id: "microsoft",
     name: "Microsoft Calendar",
     displayName: "Microsoft Calendar",
-    icon: "🔷", // Microsoft icon placeholder
+    icon: "🔷",
     color: "#0078D4",
     description: "Outlook • Office 365 • Teams",
   },
@@ -51,7 +44,7 @@ const calendarProviders: CalendarProvider[] = [
     id: "apple",
     name: "Apple Calendar",
     displayName: "Apple Calendar",
-    icon: "🍎", // Apple icon placeholder
+    icon: "🍎",
     color: "#007AFF",
     description: "iCloud • Native iOS integration",
   },
@@ -59,8 +52,8 @@ const calendarProviders: CalendarProvider[] = [
 
 type ConnectionStatus = "idle" | "connecting" | "connected" | "error";
 
-export default function CalendarConnectionScreen() {
-  const router = useRouter();
+const CalendarConnectionScreen = () => {
+  const navigation = useNavigation<NavigationProp>();
   const [selectedProvider, setSelectedProvider] = useState<string | null>(null);
   const [connectionStatus, setConnectionStatus] =
     useState<ConnectionStatus>("idle");
@@ -70,15 +63,12 @@ export default function CalendarConnectionScreen() {
     setSelectedProvider(providerId);
     setConnectionStatus("connecting");
 
-    // Simulate connection process
     try {
-      // TODO: Implement actual calendar connection logic
       await simulateConnection(providerId);
       setConnectionStatus("connected");
 
-      // Auto-advance to next step after successful connection
       setTimeout(() => {
-        router.push("/onboarding/step-5");
+        navigation.navigate("OpenConversation");
       }, 1500);
     } catch (error) {
       setConnectionStatus("error");
@@ -87,30 +77,32 @@ export default function CalendarConnectionScreen() {
         "Unable to connect to your calendar. Please try again.",
         [
           { text: "Try Again", onPress: () => setConnectionStatus("idle") },
-          { text: "Skip for Now", onPress: handleSkip },
+          {
+            text: "Skip for Now",
+            onPress: () => navigation.navigate("OpenConversation"),
+          },
         ]
       );
     }
   };
 
-  const handleSkip = () => {
-    if (showSkipConfirmation) {
-      // User confirmed skip
-      router.push("/onboarding/step-5");
+  const handleContinue = (additionalInput?: string) => {
+    if (additionalInput) {
+      console.log("Additional calendar input:", additionalInput);
+    }
+
+    if (connectionStatus === "connected" || showSkipConfirmation) {
+      navigation.navigate("OpenConversation");
+    } else if (selectedProvider) {
+      handleConnect(selectedProvider);
     } else {
-      // Show confirmation
       setShowSkipConfirmation(true);
     }
-  };
-
-  const handleBack = () => {
-    router.back();
   };
 
   const simulateConnection = (providerId: string): Promise<void> => {
     return new Promise((resolve, reject) => {
       setTimeout(() => {
-        // 90% success rate for demo
         if (Math.random() > 0.1) {
           resolve();
         } else {
@@ -120,35 +112,32 @@ export default function CalendarConnectionScreen() {
     });
   };
 
-  const canContinue = connectionStatus === "connected";
+  const canContinue = connectionStatus === "connected" || showSkipConfirmation;
 
   return (
     <OnboardingPageLayout
       title="Connect Your Calendar"
       subtitle="Blob needs to know when you're busy to create realistic schedules around your existing commitments."
       onBack={handleBack}
-      onContinue={() => router.push("/onboarding/step-5")}
+      onContinue={handleContinue}
       canContinue={canContinue}
-      hideNavigation={connectionStatus === "connecting" || showSkipConfirmation}
+      inputPlaceholder="calendar/ anything more that you'd like to share"
     >
       <View style={styles.container}>
         {!showSkipConfirmation ? (
           <>
-            {/* Calendar Providers */}
             <View style={styles.providersContainer}>
-              {calendarProviders.map((provider, index) => (
+              {calendarProviders.map((provider) => (
                 <CalendarProviderCard
                   key={provider.id}
                   provider={provider}
                   isSelected={selectedProvider === provider.id}
                   connectionStatus={connectionStatus}
                   onConnect={() => handleConnect(provider.id)}
-                  animationDelay={index * 150}
                 />
               ))}
             </View>
 
-            {/* Benefits Section */}
             <View style={styles.benefitsSection}>
               <View style={styles.benefitsCard}>
                 <Text style={styles.benefitsTitle}>
@@ -171,11 +160,10 @@ export default function CalendarConnectionScreen() {
               </View>
             </View>
 
-            {/* Skip Option */}
             <View style={styles.skipSection}>
               <TouchableOpacity
                 style={styles.skipButton}
-                onPress={handleSkip}
+                onPress={() => setShowSkipConfirmation(true)}
                 disabled={connectionStatus === "connecting"}
               >
                 <Text style={styles.skipText}>Skip for now</Text>
@@ -187,21 +175,20 @@ export default function CalendarConnectionScreen() {
           </>
         ) : (
           <SkipConfirmation
-            onConfirm={handleSkip}
+            onConfirm={() => navigation.navigate("OpenConversation")}
             onCancel={() => setShowSkipConfirmation(false)}
           />
         )}
       </View>
     </OnboardingPageLayout>
   );
-}
+};
 
 interface CalendarProviderCardProps {
   provider: CalendarProvider;
   isSelected: boolean;
   connectionStatus: ConnectionStatus;
   onConnect: () => void;
-  animationDelay: number;
 }
 
 const CalendarProviderCard: React.FC<CalendarProviderCardProps> = ({
@@ -209,38 +196,12 @@ const CalendarProviderCard: React.FC<CalendarProviderCardProps> = ({
   isSelected,
   connectionStatus,
   onConnect,
-  animationDelay,
 }) => {
-  const animatedValue = React.useRef(new Animated.Value(0)).current;
   const isConnecting = isSelected && connectionStatus === "connecting";
   const isConnected = isSelected && connectionStatus === "connected";
 
-  React.useEffect(() => {
-    Animated.timing(animatedValue, {
-      toValue: 1,
-      duration: 600,
-      delay: animationDelay,
-      useNativeDriver: true,
-    }).start();
-  }, [animatedValue, animationDelay]);
-
-  const translateY = animatedValue.interpolate({
-    inputRange: [0, 1],
-    outputRange: [30, 0],
-  });
-
-  const opacity = animatedValue.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0, 1],
-  });
-
   return (
-    <Animated.View
-      style={[
-        styles.providerCardContainer,
-        { transform: [{ translateY }], opacity },
-      ]}
-    >
+    <View style={styles.providerCardContainer}>
       <TouchableOpacity
         style={[
           styles.providerCard,
@@ -251,14 +212,12 @@ const CalendarProviderCard: React.FC<CalendarProviderCardProps> = ({
         disabled={connectionStatus === "connecting"}
         activeOpacity={0.8}
       >
-        {/* Popular Badge */}
         {provider.isPopular && (
           <View style={styles.popularBadge}>
             <Text style={styles.popularText}>Most Popular</Text>
           </View>
         )}
 
-        {/* Provider Info */}
         <View style={styles.providerInfo}>
           <View style={styles.providerIconContainer}>
             <Text style={styles.providerIcon}>{provider.icon}</Text>
@@ -272,27 +231,10 @@ const CalendarProviderCard: React.FC<CalendarProviderCardProps> = ({
           </View>
         </View>
 
-        {/* Status Indicator */}
         <View style={styles.statusContainer}>
           {isConnecting && (
             <View style={styles.loadingIndicator}>
-              <Animated.View
-                style={[
-                  styles.loadingSpinner,
-                  {
-                    transform: [
-                      {
-                        rotate: animatedValue.interpolate({
-                          inputRange: [0, 1],
-                          outputRange: ["0deg", "360deg"],
-                        }),
-                      },
-                    ],
-                  },
-                ]}
-              >
-                <Ionicons name="sync" size={20} color={Colors.primary.main} />
-              </Animated.View>
+              <Ionicons name="sync" size={20} color={Colors.primary.main} />
               <Text style={styles.connectingText}>Connecting...</Text>
             </View>
           )}
@@ -320,7 +262,7 @@ const CalendarProviderCard: React.FC<CalendarProviderCardProps> = ({
           )}
         </View>
       </TouchableOpacity>
-    </Animated.View>
+    </View>
   );
 };
 
@@ -482,10 +424,6 @@ const styles = StyleSheet.create({
     gap: Spacing.xs,
   },
 
-  loadingSpinner: {
-    // Animation handled by Animated.View transform
-  },
-
   connectingText: {
     ...Typography.captionMedium,
     color: Colors.primary.main,
@@ -584,7 +522,6 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
 
-  // Skip Confirmation Styles
   skipConfirmationContainer: {
     flex: 1,
     justifyContent: "center",
@@ -654,3 +591,5 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
 });
+
+export default CalendarConnectionScreen;

@@ -41,7 +41,7 @@ const workStyleOptions: WorkStyleOption[] = [
   },
 ];
 
-export const WorkStyleScreen = () => {
+const WorkStyleScreen = () => {
   const navigation = useNavigation<NavigationProp>();
   const [selectedOption, setSelectedOption] = useState<string>("");
 

@@ -54,7 +54,7 @@ const stressResponseOptions: StressResponseOption[] = [
   },
 ];
 
-export const StressResponseScreen = () => {
+const StressResponseScreen = () => {
   const navigation = useNavigation<NavigationProp>();
   const [selectedOption, setSelectedOption] = useState<string | null>(null);
 
@@ -91,13 +91,12 @@ export const StressResponseScreen = () => {
       inputPlaceholder="stress response/ anything more that you'd like to share"
     >
       <View style={styles.optionsContainer}>
-        {stressResponseOptions.map((option, index) => (
+        {stressResponseOptions.map((option) => (
           <StressResponseCard
             key={option.id}
             option={option}
             isSelected={selectedOption === option.id}
             onSelect={() => handleOptionSelect(option.id)}
-            animationDelay={index * 100}
           />
         ))}
       </View>
@@ -122,40 +121,15 @@ interface StressResponseCardProps {
   option: StressResponseOption;
   isSelected: boolean;
   onSelect: () => void;
-  animationDelay: number;
 }
 
 const StressResponseCard: React.FC<StressResponseCardProps> = ({
   option,
   isSelected,
   onSelect,
-  animationDelay,
 }) => {
-  const animatedValue = React.useRef(new Animated.Value(0)).current;
-
-  React.useEffect(() => {
-    Animated.timing(animatedValue, {
-      toValue: 1,
-      duration: 600,
-      delay: animationDelay,
-      useNativeDriver: true,
-    }).start();
-  }, [animatedValue, animationDelay]);
-
-  const translateY = animatedValue.interpolate({
-    inputRange: [0, 1],
-    outputRange: [50, 0],
-  });
-
-  const opacity = animatedValue.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0, 1],
-  });
-
   return (
-    <Animated.View
-      style={[styles.cardContainer, { transform: [{ translateY }], opacity }]}
-    >
+    <View style={styles.cardContainer}>
       <TouchableOpacity
         style={[styles.optionCard, isSelected && styles.selectedCard]}
         onPress={onSelect}
@@ -192,7 +166,7 @@ const StressResponseCard: React.FC<StressResponseCardProps> = ({
         {/* Glass Effect Overlay */}
         {isSelected && <View style={styles.glassOverlay} />}
       </TouchableOpacity>
-    </Animated.View>
+    </View>
   );
 };
 

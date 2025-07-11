@@ -1,6 +1,6 @@
 import { StyleSheet, Text, View } from "react-native";
 
-export const OpenConversationScreen = () => {
+const OpenConversationScreen = () => {
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Open Conversation</Text>
@@ -28,3 +28,5 @@ const styles = StyleSheet.create({
     color: "#888",
   },
 });
+
+export default OpenConversationScreen;

@@ -4,10 +4,10 @@ import { createNativeStackNavigator } from "@react-navigation/native-stack";
 // Import onboarding screens
 import CalendarConnectionScreen from "@/screens/onboarding/CalendarConnectionScreen";
 import EnergyPatternScreen from "@/screens/onboarding/EnergyPatternScreen";
-import { OpenConversationScreen } from "@/screens/onboarding/OpenConversationScreen";
+import OpenConversationScreen from "@/screens/onboarding/OpenConversationScreen";
 import PersonalityScreen from "@/screens/onboarding/PersonalityScreen";
 import StressResponseScreen from "@/screens/onboarding/StreesResponseScreen";
-import { WorkStyleScreen } from "@/screens/onboarding/WorkStyleScreen";
+import WorkStyleScreen from "@/screens/onboarding/WorkStyleScreen";
 
 export type OnboardingStackParamList = {
   EnergyPattern: undefined;
