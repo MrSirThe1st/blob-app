@@ -124,6 +124,7 @@ const AuthNavigator = () => {
     isAuthenticated,
     hasUserProfile: !!userProfile,
     onboardingCompleted: userProfile?.onboardingCompleted,
+    onboardingStep: userProfile?.onboardingStep,
     userEmail: userProfile?.email,
   });
 
@@ -142,10 +143,17 @@ const AuthNavigator = () => {
       return <LoadingScreen />;
     }
 
-    // Check onboarding status
-    if (userProfile.onboardingCompleted === false) {
-      // User authenticated but onboarding not complete -> Show onboarding
-      console.log("🎯 AuthNavigator: Showing onboarding (not completed)");
+    // More robust onboarding check - consider both completed flag and step
+    const isOnboardingComplete = userProfile.onboardingCompleted === true;
+    const onboardingStep = userProfile.onboardingStep || 0;
+
+    // If onboarding is explicitly incomplete OR user is still in onboarding steps
+    if (!isOnboardingComplete || (onboardingStep > 0 && onboardingStep <= 5)) {
+      console.log("🎯 AuthNavigator: Showing onboarding", {
+        onboardingCompleted: userProfile.onboardingCompleted,
+        onboardingStep: userProfile.onboardingStep,
+        reason: !isOnboardingComplete ? "not completed" : "in progress",
+      });
       return <OnboardingNavigator />;
     }
 

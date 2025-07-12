@@ -1,6 +1,6 @@
 // src/hooks/useOnboarding.ts
 /**
- * Enhanced onboarding hook that properly handles the 5-step flow with text inputs
+ * Complete onboarding hook that properly handles the 5-step flow with text inputs
  */
 import { useState, useCallback } from "react";
 import { Alert } from "react-native";
@@ -25,7 +25,7 @@ interface OnboardingData {
   workStyleNote?: string;
 
   // Step 3: Stress Response
-  stressResponse?: "less_slower" | "structure" | "support";
+  stressResponse?: "reduce" | "structure" | "support";
   stressResponseNote?: string;
 
   // Step 4: Calendar (optional)
@@ -124,6 +124,7 @@ export const useOnboarding = () => {
         // For steps 1-3, save immediately to profile for persistence
         let profileUpdates: any = {
           onboardingStep: currentStep + 1,
+          onboardingCompleted: false, // CRITICAL: Explicitly keep onboarding as incomplete
         };
 
         switch (currentStep) {
@@ -170,75 +171,57 @@ export const useOnboarding = () => {
     [
       state.currentStep,
       onboardingData,
-      updateProfile,
       validateStepData,
       setLoading,
       setError,
       clearError,
       updateOnboardingData,
+      updateProfile,
     ]
   );
 
   /**
-   * Complete final onboarding step with AI processing
+   * Complete the onboarding process
    */
   const completeOnboarding = useCallback(
-    async (conversationText: string): Promise<boolean> => {
-      const finalData = { ...onboardingData, conversationText };
-
-      if (!validateStepData(5, finalData)) {
-        setError(
-          "Please share at least 20 characters about yourself to help Blob understand you better."
-        );
-        return false;
-      }
-
+    async (finalData?: Partial<OnboardingData>): Promise<boolean> => {
       setLoading(true);
       clearError();
 
       try {
-        // Combine all text inputs for AI processing
-        const allTextInputs = [
-          finalData.energyPatternNote,
-          finalData.workStyleNote,
-          finalData.stressResponseNote,
-          conversationText,
-        ]
-          .filter(Boolean)
-          .join("\n\n");
+        // Merge any final data
+        const finalOnboardingData = { ...onboardingData, ...finalData };
 
-        // Prepare basic profile for AI
-        const basicProfile = {
-          chronotype: finalData.energyPattern || userProfile?.chronotype,
-          workStyle: finalData.workStyle || userProfile?.workStyle,
-          stressResponse:
-            finalData.stressResponse || userProfile?.motivationType,
-        };
-
-        // Process with AI
-        let aiInsights;
-        try {
-          aiInsights = await openAIService.processDetailedOnboardingInput(
-            allTextInputs,
-            basicProfile
-          );
-        } catch (aiError) {
-          console.warn("AI processing failed, using fallback:", aiError);
-          // Continue without AI insights rather than blocking onboarding
-          aiInsights = null;
+        // Validate all steps are complete
+        for (let step = 1; step <= 5; step++) {
+          if (!validateStepData(step, finalOnboardingData)) {
+            setError(
+              `Step ${step} is incomplete. Please go back and complete it.`
+            );
+            return false;
+          }
         }
 
-        // Save final profile updates
-        const finalProfileUpdates = {
+        // Save final onboarding data
+        const profileUpdates = {
           onboardingCompleted: true,
           onboardingStep: 0, // Reset since completed
-          ...(aiInsights && { aiPersonality: aiInsights }),
+          chronotype: finalOnboardingData.energyPattern,
+          workStyle: finalOnboardingData.workStyle,
+          motivationType: finalOnboardingData.stressResponse,
+          calendarConnected: finalOnboardingData.calendarConnected || false,
+          onboardingNotes: {
+            energyPatternNote: finalOnboardingData.energyPatternNote,
+            workStyleNote: finalOnboardingData.workStyleNote,
+            stressResponseNote: finalOnboardingData.stressResponseNote,
+            conversationText: finalOnboardingData.conversationText,
+          },
         };
 
-        const { error } = await updateProfile(finalProfileUpdates);
+        const { error } = await updateProfile(profileUpdates);
 
         if (error) {
-          setError("Failed to save your information. Please try again.");
+          setError("Failed to complete onboarding. Please try again.");
           return false;
         }
 
