@@ -15,6 +15,26 @@ export type {
   UserProfileData,
 } from "./auth";
 
+// OpenAI service
+export { openAIService } from "./openai";
+export type {
+  ChatMessage,
+  OnboardingConversationData,
+  ScheduleRequest,
+  ScheduleResponse,
+  GeneratedTask,
+} from "./openai";
+
+// Scheduling service
+export { schedulingService } from "../scheduling/SchedulingService";
+export type {
+  Task,
+  Schedule,
+  ScheduledTask,
+  UserAvailability,
+  UserPreferences,
+} from "../scheduling/SchedulingService";
+
 // Authentication utilities
 export {
   AuthErrorCode,
@@ -39,6 +59,8 @@ export const ErrorMessages = {
   USER_NOT_FOUND: "User not found.",
   EMAIL_ALREADY_EXISTS: "An account with this email already exists.",
   UNKNOWN_ERROR: "An unexpected error occurred. Please try again.",
+  OPENAI_NOT_CONFIGURED: "AI service is not properly configured.",
+  SCHEDULE_GENERATION_FAILED: "Failed to generate schedule. Using default.",
 } as const;
 
 // Success messages
@@ -50,6 +72,10 @@ export const SuccessMessages = {
   PASSWORD_RESET_SENT: "Password reset email sent. Please check your inbox.",
   PASSWORD_UPDATED: "Password updated successfully.",
   PROFILE_UPDATED: "Profile updated successfully.",
+  ONBOARDING_COMPLETED:
+    "Onboarding completed! Generating your first schedule...",
+  SCHEDULE_GENERATED: "Your personalized schedule has been created!",
+  TASK_COMPLETED: "Great job! Task completed and XP awarded.",
 } as const;
 
 // API configuration
@@ -57,6 +83,8 @@ export const API_CONFIG = {
   TIMEOUT: 30000, // 30 seconds
   RETRY_ATTEMPTS: 3,
   RETRY_DELAY: 1000, // 1 second
+  MIN_ONBOARDING_INPUT_LENGTH: 50,
+  MAX_ONBOARDING_INPUT_LENGTH: 2000,
 } as const;
 
 // Helper function to handle API errors consistently
