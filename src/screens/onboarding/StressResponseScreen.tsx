@@ -1,11 +1,13 @@
-import React, { useState } from "react";
-import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
+// src/screens/onboarding/StressResponseScreen.tsx
+import React, { useState, useEffect } from "react";
+import { View, Text, TouchableOpacity, StyleSheet, Alert } from "react-native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useNavigation } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
 import { Colors, Typography, Spacing, BorderRadius } from "@/constants";
 import OnboardingPageLayout from "@/components/onboarding/OnboardingPageLayout";
 import { OnboardingStackParamList } from "@/components/navigation/OnboardingNavigator";
+import { useOnboarding } from "@/hooks/useOnboarding";
 
 type NavigationProp = NativeStackNavigationProp<
   OnboardingStackParamList,
@@ -50,29 +52,57 @@ const stressResponseOptions: StressResponseOption[] = [
 
 const StressResponseScreen = () => {
   const navigation = useNavigation<NavigationProp>();
-  const [selectedOption, setSelectedOption] = useState<string | null>(null);
+  const {
+    saveStepAndContinue,
+    isLoading,
+    hasError,
+    errorMessage,
+    clearError,
+    goBackStep,
+  } = useOnboarding();
 
-  const handleContinue = (additionalInput?: string) => {
-    if (!selectedOption) {
-      return; // OnboardingPageLayout will handle validation
+  const [selectedOption, setSelectedOption] = useState<string>("");
+
+  // Clear any previous errors when component mounts
+  useEffect(() => {
+    clearError();
+  }, [clearError]);
+
+  // Show error alert if there's an error
+  useEffect(() => {
+    if (hasError && errorMessage) {
+      Alert.alert("Error", errorMessage, [{ text: "OK", onPress: clearError }]);
     }
+  }, [hasError, errorMessage, clearError]);
 
-    // Store the stress response preference
-    console.log("Selected stress response:", selectedOption);
-    if (additionalInput) {
-      console.log("Additional stress response input:", additionalInput);
+  const handleContinue = async (additionalInput?: string) => {
+    // Prepare step data
+    const stepData = {
+      stressResponse:
+        (selectedOption as "reduce" | "structure" | "support") || undefined,
+    };
+
+    // Save step and continue
+    const success = await saveStepAndContinue(stepData, additionalInput);
+
+    if (success) {
+      // Navigate to next screen - CalendarConnection
+      navigation.navigate("CalendarConnection");
     }
-
-    // Navigate to next step
-    navigation.navigate("CalendarConnection");
+    // If not successful, error handling is done in the hook
   };
 
   const handleBack = () => {
+    goBackStep();
     navigation.goBack();
   };
 
-  const handleOptionSelect = (optionId: string) => {
-    setSelectedOption(optionId);
+  const handleOptionSelect = (optionValue: string) => {
+    setSelectedOption(optionValue);
+    // Clear errors when user makes a selection
+    if (hasError) {
+      clearError();
+    }
   };
 
   return (
@@ -81,18 +111,29 @@ const StressResponseScreen = () => {
       subtitle="When you're overwhelmed, what helps you most? This helps Blob adapt when you need support."
       onBack={handleBack}
       onContinue={handleContinue}
-      canContinue={!!selectedOption} // <-- This was the missing piece!
+      canContinue={!!selectedOption}
       inputPlaceholder="stress response/ anything more that you'd like to share"
+      isLoading={isLoading}
+      validationMessage="Please either select a stress response or provide at least 10 characters describing how you handle stress."
     >
       <View style={styles.optionsContainer}>
         {stressResponseOptions.map((option) => (
           <StressResponseCard
             key={option.id}
             option={option}
-            isSelected={selectedOption === option.id}
-            onSelect={() => handleOptionSelect(option.id)}
+            isSelected={selectedOption === option.value}
+            onSelect={() => handleOptionSelect(option.value)}
+            isLoading={isLoading}
           />
         ))}
+      </View>
+
+      {/* Show additional help text */}
+      <View style={styles.helpContainer}>
+        <Text style={styles.helpText}>
+          💡 This helps Blob adjust your schedule and provide the right type of
+          support during stressful times
+        </Text>
       </View>
     </OnboardingPageLayout>
   );
@@ -102,47 +143,72 @@ interface StressResponseCardProps {
   option: StressResponseOption;
   isSelected: boolean;
   onSelect: () => void;
+  isLoading: boolean;
 }
 
 const StressResponseCard: React.FC<StressResponseCardProps> = ({
   option,
   isSelected,
   onSelect,
+  isLoading,
 }) => {
   return (
     <View style={styles.cardContainer}>
       <TouchableOpacity
-        style={[styles.optionCard, isSelected && styles.selectedCard]}
+        style={[
+          styles.optionCard,
+          isSelected && styles.selectedCard,
+          isLoading && styles.cardDisabled,
+        ]}
         onPress={onSelect}
         activeOpacity={0.8}
+        disabled={isLoading}
       >
         <View style={styles.cardHeader}>
-          <View style={styles.emojiContainer}>
-            <Text style={styles.emoji}>{option.emoji}</Text>
+          <View
+            style={[
+              styles.emojiContainer,
+              isLoading && styles.emojiContainerDisabled,
+            ]}
+          >
+            <Text style={[styles.emoji, isLoading && styles.emojiDisabled]}>
+              {option.emoji}
+            </Text>
           </View>
           <View
             style={[
               styles.selectionIndicator,
               isSelected && styles.selectionIndicatorSelected,
+              isLoading && styles.selectionIndicatorDisabled,
             ]}
           >
             {isSelected && (
               <Ionicons
                 name="checkmark"
                 size={16}
-                color={Colors.text.onPrimary}
+                color={isLoading ? Colors.text.muted : Colors.text.onPrimary}
               />
             )}
           </View>
         </View>
 
         <View style={styles.cardContent}>
-          <Text style={styles.optionTitle}>{option.title}</Text>
-          <Text style={styles.optionSubtitle}>{option.subtitle}</Text>
-          <Text style={styles.optionDescription}>{option.description}</Text>
+          <Text style={[styles.optionTitle, isLoading && styles.textDisabled]}>
+            {option.title}
+          </Text>
+          <Text
+            style={[styles.optionSubtitle, isLoading && styles.textDisabled]}
+          >
+            {option.subtitle}
+          </Text>
+          <Text
+            style={[styles.optionDescription, isLoading && styles.textDisabled]}
+          >
+            {option.description}
+          </Text>
         </View>
 
-        {isSelected && <View style={styles.glassOverlay} />}
+        {isSelected && !isLoading && <View style={styles.glassOverlay} />}
       </TouchableOpacity>
     </View>
   );
@@ -185,6 +251,12 @@ const styles = StyleSheet.create({
     elevation: 8,
   },
 
+  cardDisabled: {
+    opacity: 0.6,
+    shadowOpacity: 0,
+    elevation: 0,
+  },
+
   cardHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -206,8 +278,18 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
 
+  emojiContainerDisabled: {
+    backgroundColor: Colors.background.muted,
+    shadowOpacity: 0,
+    elevation: 0,
+  },
+
   emoji: {
     fontSize: 32,
+  },
+
+  emojiDisabled: {
+    opacity: 0.5,
   },
 
   selectionIndicator: {
@@ -224,6 +306,11 @@ const styles = StyleSheet.create({
   selectionIndicatorSelected: {
     backgroundColor: Colors.primary.main,
     borderColor: Colors.primary.main,
+  },
+
+  selectionIndicatorDisabled: {
+    backgroundColor: Colors.background.muted,
+    borderColor: Colors.border.subtle,
   },
 
   cardContent: {
@@ -251,6 +338,10 @@ const styles = StyleSheet.create({
     fontStyle: "italic",
   },
 
+  textDisabled: {
+    color: Colors.text.muted,
+  },
+
   glassOverlay: {
     position: "absolute",
     top: 0,
@@ -259,6 +350,22 @@ const styles = StyleSheet.create({
     bottom: 0,
     backgroundColor: "rgba(235, 100, 35, 0.05)",
     borderRadius: BorderRadius.blob.medium,
+  },
+
+  helpContainer: {
+    marginTop: Spacing.xl,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.md,
+    backgroundColor: Colors.background.accent,
+    borderRadius: BorderRadius.md,
+    marginHorizontal: Spacing.md,
+  },
+
+  helpText: {
+    ...Typography.bodySmall,
+    color: Colors.text.secondary,
+    textAlign: "center",
+    lineHeight: 18,
   },
 });
 

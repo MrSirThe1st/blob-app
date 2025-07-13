@@ -1,11 +1,12 @@
 // src/screens/onboarding/EnergyPatternScreen.tsx
-import React, { useState } from "react";
-import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import React, { useState, useEffect } from "react";
+import { StyleSheet, Text, TouchableOpacity, View, Alert } from "react-native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useNavigation } from "@react-navigation/native";
 import { Colors, Typography, Spacing, BorderRadius } from "@/constants";
 import { OnboardingStackParamList } from "@/components/navigation/OnboardingNavigator";
 import OnboardingPageLayout from "@/components/onboarding/OnboardingPageLayout";
+import { useOnboarding } from "@/hooks/useOnboarding";
 
 type NavigationProp = NativeStackNavigationProp<
   OnboardingStackParamList,
@@ -42,21 +43,46 @@ const energyOptions: EnergyOption[] = [
 
 const EnergyPatternScreen = () => {
   const navigation = useNavigation<NavigationProp>();
+  const { saveStepAndContinue, isLoading, hasError, errorMessage, clearError } =
+    useOnboarding();
+
   const [selectedOption, setSelectedOption] = useState<string>("");
+
+  // Clear any previous errors when component mounts
+  useEffect(() => {
+    clearError();
+  }, [clearError]);
+
+  // Show error alert if there's an error
+  useEffect(() => {
+    if (hasError && errorMessage) {
+      Alert.alert("Error", errorMessage, [{ text: "OK", onPress: clearError }]);
+    }
+  }, [hasError, errorMessage, clearError]);
 
   const handleOptionSelect = (optionId: string) => {
     setSelectedOption(optionId);
+    // Clear errors when user makes a selection
+    if (hasError) {
+      clearError();
+    }
   };
 
-  const handleContinue = (additionalInput?: string) => {
-    // Save energy pattern and additional input to user profile
-    console.log("Selected energy pattern:", selectedOption);
-    if (additionalInput) {
-      console.log("Additional user input:", additionalInput);
-    }
+  const handleContinue = async (additionalInput?: string) => {
+    // Prepare step data
+    const stepData = {
+      energyPattern:
+        (selectedOption as "morning" | "afternoon" | "evening") || undefined,
+    };
 
-    // Navigate to next screen
-    navigation.navigate("WorkStyle");
+    // Save step and continue
+    const success = await saveStepAndContinue(stepData, additionalInput);
+
+    if (success) {
+      // Navigate to next screen - WorkStyle
+      navigation.navigate("WorkStyle");
+    }
+    // If not successful, error handling is done in the hook
   };
 
   return (
@@ -67,6 +93,8 @@ const EnergyPatternScreen = () => {
       // No onBack prop - this is the first screen
       canContinue={!!selectedOption}
       inputPlaceholder="energy pattern/ anything more that you'd like to share"
+      isLoading={isLoading}
+      validationMessage="Please either select an energy pattern or provide at least 10 characters describing your energy pattern."
     >
       <View style={styles.optionsContainer}>
         {energyOptions.map((option) => (
@@ -75,27 +103,64 @@ const EnergyPatternScreen = () => {
             style={[
               styles.optionButton,
               selectedOption === option.id && styles.optionButtonSelected,
+              isLoading && styles.optionButtonDisabled,
             ]}
             onPress={() => handleOptionSelect(option.id)}
             activeOpacity={0.7}
+            disabled={isLoading}
           >
-            <Text style={styles.optionIcon}>{option.icon}</Text>
+            <Text
+              style={[
+                styles.optionIcon,
+                isLoading && styles.optionIconDisabled,
+              ]}
+            >
+              {option.icon}
+            </Text>
             <View style={styles.optionContent}>
-              <Text style={styles.optionTitle}>{option.title}</Text>
-              <Text style={styles.optionDescription}>{option.description}</Text>
+              <Text
+                style={[
+                  styles.optionTitle,
+                  isLoading && styles.optionTextDisabled,
+                ]}
+              >
+                {option.title}
+              </Text>
+              <Text
+                style={[
+                  styles.optionDescription,
+                  isLoading && styles.optionTextDisabled,
+                ]}
+              >
+                {option.description}
+              </Text>
             </View>
             <View
               style={[
                 styles.selectionIndicator,
                 selectedOption === option.id && styles.selectionIndicatorActive,
+                isLoading && styles.selectionIndicatorDisabled,
               ]}
             >
               {selectedOption === option.id && (
-                <View style={styles.selectionDot} />
+                <View
+                  style={[
+                    styles.selectionDot,
+                    isLoading && styles.selectionDotDisabled,
+                  ]}
+                />
               )}
             </View>
           </TouchableOpacity>
         ))}
+      </View>
+
+      {/* Show additional help text */}
+      <View style={styles.helpContainer}>
+        <Text style={styles.helpText}>
+          💡 This helps Blob schedule your most important tasks when you have
+          the most energy
+        </Text>
       </View>
     </OnboardingPageLayout>
   );
@@ -127,9 +192,17 @@ const styles = StyleSheet.create({
     borderColor: Colors.primary.main,
     backgroundColor: Colors.background.accent,
   },
+  optionButtonDisabled: {
+    opacity: 0.6,
+    shadowOpacity: 0,
+    elevation: 0,
+  },
   optionIcon: {
     fontSize: 32,
     marginRight: Spacing.md,
+  },
+  optionIconDisabled: {
+    opacity: 0.5,
   },
   optionContent: {
     flex: 1,
@@ -143,6 +216,9 @@ const styles = StyleSheet.create({
     ...Typography.bodyMedium,
     color: Colors.text.secondary,
     lineHeight: 20,
+  },
+  optionTextDisabled: {
+    color: Colors.text.muted,
   },
   selectionIndicator: {
     width: 24,
@@ -158,11 +234,32 @@ const styles = StyleSheet.create({
     borderColor: Colors.primary.main,
     backgroundColor: Colors.primary.main,
   },
+  selectionIndicatorDisabled: {
+    borderColor: Colors.border.subtle,
+    backgroundColor: Colors.background.muted,
+  },
   selectionDot: {
     width: 8,
     height: 8,
     borderRadius: 4,
     backgroundColor: Colors.text.onPrimary,
+  },
+  selectionDotDisabled: {
+    backgroundColor: Colors.text.muted,
+  },
+  helpContainer: {
+    marginTop: Spacing.xl,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.md,
+    backgroundColor: Colors.background.accent,
+    borderRadius: BorderRadius.md,
+    marginHorizontal: Spacing.md,
+  },
+  helpText: {
+    ...Typography.bodySmall,
+    color: Colors.text.secondary,
+    textAlign: "center",
+    lineHeight: 18,
   },
 });
 

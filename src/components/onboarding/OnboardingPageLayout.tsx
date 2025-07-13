@@ -10,6 +10,7 @@ import {
   View,
   KeyboardAvoidingView,
   Platform,
+  Alert,
 } from "react-native";
 import { MaterialIcons } from "@expo/vector-icons";
 import { Colors, Typography, Spacing, BorderRadius } from "@/constants";
@@ -21,7 +22,9 @@ interface OnboardingPageLayoutProps {
   onContinue: (additionalInput?: string) => void;
   onBack?: () => void;
   canContinue?: boolean;
-  inputPlaceholder: string; // e.g., "energy pattern/ anything more that you'd like to share"
+  inputPlaceholder: string;
+  isLoading?: boolean;
+  validationMessage?: string;
 }
 
 const OnboardingPageLayout: React.FC<OnboardingPageLayoutProps> = ({
@@ -30,19 +33,33 @@ const OnboardingPageLayout: React.FC<OnboardingPageLayoutProps> = ({
   children,
   onContinue,
   onBack,
-  canContinue = true,
+  canContinue = false,
   inputPlaceholder,
+  isLoading = false,
+  validationMessage,
 }) => {
   const [additionalInput, setAdditionalInput] = useState("");
 
   const hasInput = additionalInput.trim().length > 0;
+  const hasMeaningfulInput = additionalInput.trim().length >= 10;
+
+  // User can proceed if they have a selection OR meaningful input
+  const canActuallyProceed = canContinue || hasMeaningfulInput;
 
   const handleContinue = () => {
+    if (!canActuallyProceed && !isLoading) {
+      const message =
+        validationMessage ||
+        "Please make a selection or provide at least 10 characters describing your choice.";
+      Alert.alert("Input Required", message);
+      return;
+    }
+
     onContinue(additionalInput.trim() || undefined);
   };
 
   const handleBack = () => {
-    if (onBack) {
+    if (onBack && !isLoading) {
       onBack();
     }
   };
@@ -77,16 +94,24 @@ const OnboardingPageLayout: React.FC<OnboardingPageLayoutProps> = ({
             {/* Back Button INSIDE the input on the left */}
             {onBack && (
               <TouchableOpacity
-                style={styles.backButtonInside}
+                style={[
+                  styles.backButtonInside,
+                  isLoading && styles.buttonDisabled,
+                ]}
                 onPress={handleBack}
                 activeOpacity={0.7}
+                disabled={isLoading}
               >
-                <MaterialIcons name="arrow-back" size={20} color="#FFFFFF" />
+                <MaterialIcons
+                  name="arrow-back"
+                  size={20}
+                  color={isLoading ? "#999" : "#FFFFFF"}
+                />
               </TouchableOpacity>
             )}
 
             <TextInput
-              style={styles.textInput}
+              style={[styles.textInput, isLoading && styles.textInputDisabled]}
               placeholder={inputPlaceholder}
               placeholderTextColor={Colors.text.muted}
               value={additionalInput}
@@ -94,22 +119,34 @@ const OnboardingPageLayout: React.FC<OnboardingPageLayoutProps> = ({
               multiline={false}
               returnKeyType="done"
               onSubmitEditing={handleContinue}
+              editable={!isLoading}
             />
 
             {/* Arrow/Checkmark Button INSIDE the input on the right */}
             <TouchableOpacity
               style={[
                 styles.navButtonInside,
-                hasInput && styles.submitButtonInside,
+                hasMeaningfulInput && styles.submitButtonInside,
+                !canActuallyProceed && styles.buttonDisabled,
+                isLoading && styles.buttonLoading,
               ]}
               onPress={handleContinue}
               activeOpacity={0.7}
+              disabled={isLoading}
             >
-              <MaterialIcons
-                name={hasInput ? "check" : "arrow-forward"}
-                size={20}
-                color="#FFFFFF"
-              />
+              {isLoading ? (
+                <MaterialIcons
+                  name="hourglass-empty"
+                  size={20}
+                  color="#FFFFFF"
+                />
+              ) : (
+                <MaterialIcons
+                  name={hasMeaningfulInput ? "check" : "arrow-forward"}
+                  size={20}
+                  color={canActuallyProceed ? "#FFFFFF" : "#999"}
+                />
+              )}
             </TouchableOpacity>
           </View>
         </View>
@@ -168,23 +205,6 @@ const styles = StyleSheet.create({
     gap: Spacing.md,
   },
 
-  backButton: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: Colors.primary.main,
-    alignItems: "center",
-    justifyContent: "center",
-    shadowColor: Colors.primary.main,
-    shadowOffset: {
-      width: 0,
-      height: 4,
-    },
-    shadowOpacity: 0.2,
-    shadowRadius: 12,
-    elevation: 6,
-  },
-
   // Combined Input + Navigation Component - Improved styling
   inputNavContainer: {
     flex: 1,
@@ -218,6 +238,10 @@ const styles = StyleSheet.create({
     textAlignVertical: "center",
     fontSize: 16,
     paddingHorizontal: Spacing.md,
+  },
+
+  textInputDisabled: {
+    color: Colors.text.muted,
   },
 
   // Arrow/Checkmark Button INSIDE the input - Enhanced styling
@@ -259,6 +283,16 @@ const styles = StyleSheet.create({
   submitButtonInside: {
     backgroundColor: "#4CAF50", // Hardcoded green to ensure visibility
     shadowColor: "#4CAF50",
+  },
+
+  buttonDisabled: {
+    backgroundColor: "#CCCCCC",
+    shadowOpacity: 0,
+    elevation: 0,
+  },
+
+  buttonLoading: {
+    backgroundColor: "#999999",
   },
 });
 

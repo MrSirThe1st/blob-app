@@ -1,595 +1,335 @@
-import React, { useState } from "react";
-import { View, Text, TouchableOpacity, StyleSheet, Alert } from "react-native";
+// src/screens/onboarding/CalendarConnectionScreen.tsx
+import React, { useState, useEffect } from "react";
+import { StyleSheet, Text, TouchableOpacity, View, Alert } from "react-native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useNavigation } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
 import { Colors, Typography, Spacing, BorderRadius } from "@/constants";
-import OnboardingPageLayout from "@/components/onboarding/OnboardingPageLayout";
 import { OnboardingStackParamList } from "@/components/navigation/OnboardingNavigator";
+import OnboardingPageLayout from "@/components/onboarding/OnboardingPageLayout";
+import { useOnboarding } from "@/hooks/useOnboarding";
 
 type NavigationProp = NativeStackNavigationProp<
   OnboardingStackParamList,
   "CalendarConnection"
 >;
 
-interface CalendarProvider {
+interface CalendarOption {
   id: string;
   name: string;
-  displayName: string;
   icon: string;
   color: string;
   description: string;
-  isPopular?: boolean;
 }
 
-const calendarProviders: CalendarProvider[] = [
+const calendarOptions: CalendarOption[] = [
   {
     id: "google",
     name: "Google Calendar",
-    displayName: "Google Calendar",
-    icon: "🔴",
+    icon: "📅",
     color: "#4285F4",
-    description: "Most popular choice • Easy sync",
-    isPopular: true,
+    description: "Connect your Google Calendar",
   },
   {
     id: "microsoft",
     name: "Microsoft Calendar",
-    displayName: "Microsoft Calendar",
-    icon: "🔷",
+    icon: "📆",
     color: "#0078D4",
-    description: "Outlook • Office 365 • Teams",
+    description: "Connect your Outlook Calendar",
   },
   {
     id: "apple",
     name: "Apple Calendar",
-    displayName: "Apple Calendar",
-    icon: "🍎",
+    icon: "🗓️",
     color: "#007AFF",
-    description: "iCloud • Native iOS integration",
+    description: "Connect your Apple Calendar",
   },
 ];
 
-type ConnectionStatus = "idle" | "connecting" | "connected" | "error";
-
 const CalendarConnectionScreen = () => {
   const navigation = useNavigation<NavigationProp>();
-  const [selectedProvider, setSelectedProvider] = useState<string | null>(null);
-  const [connectionStatus, setConnectionStatus] =
-    useState<ConnectionStatus>("idle");
-  const [showSkipConfirmation, setShowSkipConfirmation] = useState(false);
+  const {
+    saveStepAndContinue,
+    isLoading,
+    hasError,
+    errorMessage,
+    clearError,
+    goBackStep,
+  } = useOnboarding();
 
-  const handleBack = () => {
-    navigation.goBack();
-  };
+  const [selectedCalendar, setSelectedCalendar] = useState<string>("");
+  const [isConnecting, setIsConnecting] = useState(false);
 
-  const handleConnect = async (providerId: string) => {
-    setSelectedProvider(providerId);
-    setConnectionStatus("connecting");
+  // Clear any previous errors when component mounts
+  useEffect(() => {
+    clearError();
+  }, [clearError]);
 
-    try {
-      await simulateConnection(providerId);
-      setConnectionStatus("connected");
+  // Show error alert if there's an error
+  useEffect(() => {
+    if (hasError && errorMessage) {
+      Alert.alert("Error", errorMessage, [{ text: "OK", onPress: clearError }]);
+    }
+  }, [hasError, errorMessage, clearError]);
 
-      setTimeout(() => {
-        navigation.navigate("OpenConversation");
-      }, 1500);
-    } catch (error) {
-      setConnectionStatus("error");
+  const handleCalendarSelect = (calendarId: string) => {
+    setSelectedCalendar(calendarId);
+    setIsConnecting(true);
+
+    // Simulate calendar connection
+    setTimeout(() => {
+      setIsConnecting(false);
       Alert.alert(
-        "Connection Failed",
-        "Unable to connect to your calendar. Please try again.",
+        "Calendar Connected",
+        `Successfully connected to ${calendarOptions.find((c) => c.id === calendarId)?.name}!`,
         [
-          { text: "Try Again", onPress: () => setConnectionStatus("idle") },
           {
-            text: "Skip for Now",
-            onPress: () => navigation.navigate("OpenConversation"),
+            text: "Continue",
+            onPress: () => handleContinue(true),
           },
         ]
       );
-    }
+    }, 2000);
   };
 
-  const handleContinue = (additionalInput?: string) => {
-    if (additionalInput) {
-      console.log("Additional calendar input:", additionalInput);
-    }
+  const handleContinue = async (
+    calendarConnected = false,
+    additionalInput?: string
+  ) => {
+    // Prepare step data
+    const stepData = {
+      calendarConnected: calendarConnected || !!selectedCalendar,
+    };
 
-    if (connectionStatus === "connected" || showSkipConfirmation) {
+    // Save step and continue
+    const success = await saveStepAndContinue(stepData, additionalInput);
+
+    if (success) {
+      // Navigate to next screen - OpenConversation
       navigation.navigate("OpenConversation");
-    } else if (selectedProvider) {
-      handleConnect(selectedProvider);
-    } else {
-      setShowSkipConfirmation(true);
     }
+    // If not successful, error handling is done in the hook
   };
 
-  const simulateConnection = (providerId: string): Promise<void> => {
-    return new Promise((resolve, reject) => {
-      setTimeout(() => {
-        if (Math.random() > 0.1) {
-          resolve();
-        } else {
-          reject(new Error("Connection failed"));
-        }
-      }, 2000);
-    });
+  const handleSkip = () => {
+    Alert.alert(
+      "Skip Calendar Connection?",
+      "You can always connect your calendar later in settings. Blob will work better with calendar access.",
+      [
+        {
+          text: "Go Back",
+          style: "cancel",
+        },
+        {
+          text: "Skip for Now",
+          onPress: () => handleContinue(false),
+        },
+      ]
+    );
   };
 
-  const canContinue = connectionStatus === "connected" || showSkipConfirmation;
+  const handleBack = () => {
+    goBackStep();
+    navigation.goBack();
+  };
 
   return (
     <OnboardingPageLayout
-      title="Connect Your Calendar"
-      subtitle="Blob needs to know when you're busy to create realistic schedules around your existing commitments."
+      title="Calendar Connection"
+      subtitle="Connect your calendar so Blob can schedule around your existing commitments and avoid conflicts."
       onBack={handleBack}
-      onContinue={handleContinue}
-      canContinue={canContinue}
-      inputPlaceholder="calendar/ anything more that you'd like to share"
+      onContinue={(input) => handleContinue(false, input)}
+      canContinue={true} // Calendar is optional
+      inputPlaceholder="calendar notes/ anything more that you'd like to share"
+      isLoading={isLoading || isConnecting}
+      validationMessage="Calendar connection is optional. You can skip this step or provide notes."
     >
-      <View style={styles.container}>
-        {!showSkipConfirmation ? (
-          <>
-            <View style={styles.providersContainer}>
-              {calendarProviders.map((provider) => (
-                <CalendarProviderCard
-                  key={provider.id}
-                  provider={provider}
-                  isSelected={selectedProvider === provider.id}
-                  connectionStatus={connectionStatus}
-                  onConnect={() => handleConnect(provider.id)}
-                />
-              ))}
-            </View>
-
-            <View style={styles.benefitsSection}>
-              <View style={styles.benefitsCard}>
-                <Text style={styles.benefitsTitle}>
-                  Why connect your calendar?
-                </Text>
-                <View style={styles.benefitsList}>
-                  <BenefitItem
-                    icon="🎯"
-                    text="Avoid scheduling conflicts automatically"
-                  />
-                  <BenefitItem
-                    icon="⚡"
-                    text="Smart scheduling around your meetings"
-                  />
-                  <BenefitItem
-                    icon="🧠"
-                    text="Blob learns your schedule patterns"
-                  />
-                </View>
-              </View>
-            </View>
-
-            <View style={styles.skipSection}>
-              <TouchableOpacity
-                style={styles.skipButton}
-                onPress={() => setShowSkipConfirmation(true)}
-                disabled={connectionStatus === "connecting"}
+      {/* Calendar Options */}
+      <View style={styles.optionsContainer}>
+        {calendarOptions.map((option) => (
+          <TouchableOpacity
+            key={option.id}
+            style={[
+              styles.calendarOption,
+              selectedCalendar === option.id && styles.calendarOptionSelected,
+              isConnecting && styles.calendarOptionDisabled,
+            ]}
+            onPress={() => handleCalendarSelect(option.id)}
+            activeOpacity={0.7}
+            disabled={isConnecting || isLoading}
+          >
+            <Text style={styles.calendarIcon}>{option.icon}</Text>
+            <View style={styles.calendarContent}>
+              <Text
+                style={[
+                  styles.calendarName,
+                  isConnecting && styles.textDisabled,
+                ]}
               >
-                <Text style={styles.skipText}>Skip for now</Text>
-                <Text style={styles.skipSubtext}>
-                  You can connect later in settings
-                </Text>
-              </TouchableOpacity>
+                {option.name}
+              </Text>
+              <Text
+                style={[
+                  styles.calendarDescription,
+                  isConnecting && styles.textDisabled,
+                ]}
+              >
+                {option.description}
+              </Text>
             </View>
-          </>
-        ) : (
-          <SkipConfirmation
-            onConfirm={() => navigation.navigate("OpenConversation")}
-            onCancel={() => setShowSkipConfirmation(false)}
-          />
-        )}
+            {isConnecting && selectedCalendar === option.id ? (
+              <View style={styles.connectingIndicator}>
+                <Text style={styles.connectingText}>Connecting...</Text>
+              </View>
+            ) : (
+              <Ionicons
+                name="chevron-forward"
+                size={20}
+                color={Colors.text.secondary}
+              />
+            )}
+          </TouchableOpacity>
+        ))}
+      </View>
+
+      {/* Skip Option */}
+      <View style={styles.skipContainer}>
+        <TouchableOpacity
+          style={[styles.skipButton, isLoading && styles.skipButtonDisabled]}
+          onPress={handleSkip}
+          disabled={isLoading || isConnecting}
+        >
+          <Text
+            style={[styles.skipButtonText, isLoading && styles.textDisabled]}
+          >
+            Skip for now
+          </Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* Help Text */}
+      <View style={styles.helpContainer}>
+        <Text style={styles.helpText}>
+          💡 Calendar access helps Blob create realistic schedules that work
+          around your existing meetings and commitments
+        </Text>
       </View>
     </OnboardingPageLayout>
   );
 };
 
-interface CalendarProviderCardProps {
-  provider: CalendarProvider;
-  isSelected: boolean;
-  connectionStatus: ConnectionStatus;
-  onConnect: () => void;
-}
-
-const CalendarProviderCard: React.FC<CalendarProviderCardProps> = ({
-  provider,
-  isSelected,
-  connectionStatus,
-  onConnect,
-}) => {
-  const isConnecting = isSelected && connectionStatus === "connecting";
-  const isConnected = isSelected && connectionStatus === "connected";
-
-  return (
-    <View style={styles.providerCardContainer}>
-      <TouchableOpacity
-        style={[
-          styles.providerCard,
-          isSelected && styles.selectedProviderCard,
-          isConnected && styles.connectedProviderCard,
-        ]}
-        onPress={onConnect}
-        disabled={connectionStatus === "connecting"}
-        activeOpacity={0.8}
-      >
-        {provider.isPopular && (
-          <View style={styles.popularBadge}>
-            <Text style={styles.popularText}>Most Popular</Text>
-          </View>
-        )}
-
-        <View style={styles.providerInfo}>
-          <View style={styles.providerIconContainer}>
-            <Text style={styles.providerIcon}>{provider.icon}</Text>
-          </View>
-
-          <View style={styles.providerDetails}>
-            <Text style={styles.providerName}>{provider.displayName}</Text>
-            <Text style={styles.providerDescription}>
-              {provider.description}
-            </Text>
-          </View>
-        </View>
-
-        <View style={styles.statusContainer}>
-          {isConnecting && (
-            <View style={styles.loadingIndicator}>
-              <Ionicons name="sync" size={20} color={Colors.primary.main} />
-              <Text style={styles.connectingText}>Connecting...</Text>
-            </View>
-          )}
-
-          {isConnected && (
-            <View style={styles.connectedIndicator}>
-              <Ionicons
-                name="checkmark-circle"
-                size={24}
-                color={Colors.success.main}
-              />
-              <Text style={styles.connectedText}>Connected!</Text>
-            </View>
-          )}
-
-          {!isSelected && (
-            <View style={styles.connectButton}>
-              <Text style={styles.connectButtonText}>Connect</Text>
-              <Ionicons
-                name="arrow-forward"
-                size={16}
-                color={Colors.text.onPrimary}
-              />
-            </View>
-          )}
-        </View>
-      </TouchableOpacity>
-    </View>
-  );
-};
-
-interface BenefitItemProps {
-  icon: string;
-  text: string;
-}
-
-const BenefitItem: React.FC<BenefitItemProps> = ({ icon, text }) => (
-  <View style={styles.benefitItem}>
-    <Text style={styles.benefitIcon}>{icon}</Text>
-    <Text style={styles.benefitText}>{text}</Text>
-  </View>
-);
-
-interface SkipConfirmationProps {
-  onConfirm: () => void;
-  onCancel: () => void;
-}
-
-const SkipConfirmation: React.FC<SkipConfirmationProps> = ({
-  onConfirm,
-  onCancel,
-}) => (
-  <View style={styles.skipConfirmationContainer}>
-    <View style={styles.skipConfirmationCard}>
-      <Text style={styles.skipConfirmationTitle}>
-        Skip calendar connection?
-      </Text>
-      <Text style={styles.skipConfirmationText}>
-        Without your calendar, Blob might schedule tasks when you're busy. You
-        can always connect later in settings.
-      </Text>
-      <View style={styles.skipConfirmationActions}>
-        <TouchableOpacity style={styles.cancelSkipButton} onPress={onCancel}>
-          <Text style={styles.cancelSkipText}>Go Back</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.confirmSkipButton} onPress={onConfirm}>
-          <Text style={styles.confirmSkipText}>Skip</Text>
-        </TouchableOpacity>
-      </View>
-    </View>
-  </View>
-);
-
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-
-  providersContainer: {
+  optionsContainer: {
     gap: Spacing.md,
-    marginBottom: Spacing.lg,
+    marginBottom: Spacing.xl,
   },
 
-  providerCardContainer: {
-    width: "100%",
-  },
-
-  providerCard: {
-    backgroundColor: Colors.background.card,
+  calendarOption: {
+    backgroundColor: Colors.background.secondary,
     borderRadius: BorderRadius.blob.medium,
     padding: Spacing.lg,
-    borderWidth: 2,
-    borderColor: Colors.border.light,
-    shadowColor: Colors.neutral[200],
-    shadowOffset: {
-      width: 0,
-      height: 4,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 12,
-    elevation: 6,
-    position: "relative",
-    overflow: "hidden",
-  },
-
-  selectedProviderCard: {
-    borderColor: Colors.primary.main,
-    backgroundColor: Colors.background.accent,
-    shadowColor: Colors.primary.main,
-    shadowOpacity: 0.2,
-    elevation: 8,
-  },
-
-  connectedProviderCard: {
-    borderColor: Colors.success.main,
-    backgroundColor: Colors.success.light,
-  },
-
-  popularBadge: {
-    position: "absolute",
-    top: -1,
-    right: -1,
-    backgroundColor: Colors.primary.main,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderTopRightRadius: BorderRadius.blob.medium,
-    borderBottomLeftRadius: 8,
-  },
-
-  popularText: {
-    ...Typography.captionSmall,
-    color: Colors.text.onPrimary,
-    fontWeight: "600",
-  },
-
-  providerInfo: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: Spacing.md,
-  },
-
-  providerIconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: Colors.background.primary,
-    justifyContent: "center",
-    alignItems: "center",
-    marginRight: Spacing.md,
-    shadowColor: Colors.neutral[300],
-    shadowOffset: { width: 0, height: 2 },
+    borderWidth: 2,
+    borderColor: "transparent",
+    shadowColor: Colors.neutral.dark,
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 2,
   },
 
-  providerIcon: {
-    fontSize: 24,
+  calendarOptionSelected: {
+    borderColor: Colors.primary.main,
+    backgroundColor: Colors.background.accent,
   },
 
-  providerDetails: {
+  calendarOptionDisabled: {
+    opacity: 0.6,
+    shadowOpacity: 0,
+    elevation: 0,
+  },
+
+  calendarIcon: {
+    fontSize: 32,
+    marginRight: Spacing.md,
+  },
+
+  calendarContent: {
     flex: 1,
   },
 
-  providerName: {
-    ...Typography.h4,
+  calendarName: {
+    ...Typography.h3,
     color: Colors.text.primary,
-    marginBottom: 2,
-    fontWeight: "600",
+    marginBottom: Spacing.xs,
   },
 
-  providerDescription: {
-    ...Typography.bodySmall,
-    color: Colors.text.secondary,
-    lineHeight: 16,
-  },
-
-  statusContainer: {
-    alignItems: "center",
-  },
-
-  loadingIndicator: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-  },
-
-  connectingText: {
-    ...Typography.bodyMedium,
-    color: Colors.primary.main,
-    fontWeight: "500",
-  },
-
-  connectedIndicator: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-  },
-
-  connectedText: {
-    ...Typography.bodyMedium,
-    color: Colors.success.main,
-    fontWeight: "600",
-  },
-
-  connectButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: Colors.primary.main,
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.sm,
-    borderRadius: BorderRadius.md,
-    gap: 4,
-  },
-
-  connectButtonText: {
-    ...Typography.buttonSmall,
-    color: Colors.text.onPrimary,
-    fontWeight: "600",
-  },
-
-  benefitsSection: {
-    marginBottom: Spacing.lg,
-  },
-
-  benefitsCard: {
-    backgroundColor: Colors.background.secondary,
-    borderRadius: BorderRadius.blob.small,
-    padding: Spacing.lg,
-    borderWidth: 1,
-    borderColor: Colors.border.subtle,
-  },
-
-  benefitsTitle: {
-    ...Typography.h4,
-    color: Colors.text.primary,
-    marginBottom: Spacing.md,
-    fontWeight: "600",
-  },
-
-  benefitsList: {
-    gap: Spacing.sm,
-  },
-
-  benefitItem: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    gap: Spacing.sm,
-  },
-
-  benefitIcon: {
-    fontSize: 16,
-    marginTop: 2,
-  },
-
-  benefitText: {
+  calendarDescription: {
     ...Typography.bodyMedium,
     color: Colors.text.secondary,
-    flex: 1,
     lineHeight: 20,
   },
 
-  skipSection: {
-    alignItems: "center",
-    marginTop: Spacing.lg,
-  },
-
-  skipButton: {
-    padding: Spacing.md,
-    alignItems: "center",
-  },
-
-  skipText: {
-    ...Typography.bodyMedium,
-    color: Colors.text.tertiary,
-    fontWeight: "500",
-  },
-
-  skipSubtext: {
-    ...Typography.captionSmall,
+  textDisabled: {
     color: Colors.text.muted,
-    marginTop: 2,
   },
 
-  skipConfirmationContainer: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
+  connectingIndicator: {
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    backgroundColor: Colors.primary.main,
+    borderRadius: BorderRadius.md,
   },
 
-  skipConfirmationCard: {
-    backgroundColor: Colors.background.card,
-    borderRadius: BorderRadius.blob.medium,
-    padding: Spacing.xl,
-    margin: Spacing.lg,
-    shadowColor: Colors.neutral[400],
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.2,
-    shadowRadius: 16,
-    elevation: 10,
-  },
-
-  skipConfirmationTitle: {
-    ...Typography.h3,
-    color: Colors.text.primary,
-    textAlign: "center",
-    marginBottom: Spacing.md,
+  connectingText: {
+    ...Typography.captionMedium,
+    color: Colors.text.onPrimary,
     fontWeight: "600",
   },
 
-  skipConfirmationText: {
-    ...Typography.bodyMedium,
-    color: Colors.text.secondary,
-    textAlign: "center",
-    lineHeight: 24,
+  skipContainer: {
+    alignItems: "center",
+    marginTop: Spacing.lg,
     marginBottom: Spacing.xl,
   },
 
-  skipConfirmationActions: {
-    flexDirection: "row",
-    gap: Spacing.md,
-  },
-
-  cancelSkipButton: {
-    flex: 1,
-    backgroundColor: Colors.background.secondary,
-    padding: Spacing.md,
+  skipButton: {
+    paddingHorizontal: Spacing.xl,
+    paddingVertical: Spacing.md,
+    backgroundColor: Colors.background.card,
     borderRadius: BorderRadius.lg,
     borderWidth: 1,
     borderColor: Colors.border.medium,
-    alignItems: "center",
   },
 
-  cancelSkipText: {
-    ...Typography.buttonMedium,
-    color: Colors.text.primary,
-    fontWeight: "600",
+  skipButtonDisabled: {
+    opacity: 0.6,
   },
 
-  confirmSkipButton: {
-    flex: 1,
-    backgroundColor: Colors.primary.main,
-    padding: Spacing.md,
-    borderRadius: BorderRadius.lg,
-    alignItems: "center",
+  skipButtonText: {
+    ...Typography.bodyMedium,
+    color: Colors.text.secondary,
+    fontWeight: "500",
   },
 
-  confirmSkipText: {
-    ...Typography.buttonMedium,
-    color: Colors.text.onPrimary,
-    fontWeight: "600",
+  helpContainer: {
+    marginTop: Spacing.xl,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.md,
+    backgroundColor: Colors.background.accent,
+    borderRadius: BorderRadius.md,
+    marginHorizontal: Spacing.md,
+  },
+
+  helpText: {
+    ...Typography.bodySmall,
+    color: Colors.text.secondary,
+    textAlign: "center",
+    lineHeight: 18,
   },
 });
 

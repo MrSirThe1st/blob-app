@@ -65,22 +65,31 @@ export const useOnboarding = () => {
   }, []);
 
   /**
-   * Validate onboarding step data based on your actual design
+   * Validate if step data is sufficient to proceed (either selection OR meaningful text)
    */
   const validateStepData = useCallback(
-    (step: number, data: Partial<OnboardingData>): boolean => {
+    (
+      step: number,
+      data: Partial<OnboardingData>,
+      additionalInput?: string
+    ): boolean => {
+      const hasMeaningfulInput =
+        additionalInput && additionalInput.trim().length >= 10;
+
       switch (step) {
-        case 1: // Energy Pattern - Required selection
-          return !!data.energyPattern;
-        case 2: // Work Style - Required selection
-          return !!data.workStyle;
-        case 3: // Stress Response - Required selection
-          return !!data.stressResponse;
+        case 1: // Energy Pattern - Either selection OR text
+          return !!data.energyPattern || hasMeaningfulInput;
+        case 2: // Work Style - Either selection OR text
+          return !!data.workStyle || hasMeaningfulInput;
+        case 3: // Stress Response - Either selection OR text
+          return !!data.stressResponse || hasMeaningfulInput;
         case 4: // Calendar Connection - Always optional
           return true;
         case 5: // Open Conversation - Require meaningful text (minimum 20 characters)
           return (
-            !!data.conversationText && data.conversationText.trim().length >= 20
+            (!!data.conversationText &&
+              data.conversationText.trim().length >= 20) ||
+            hasMeaningfulInput
           );
         default:
           return false;
@@ -103,43 +112,68 @@ export const useOnboarding = () => {
    * Save step data and continue to next step
    */
   const saveStepAndContinue = useCallback(
-    async (stepData: Partial<OnboardingData>): Promise<boolean> => {
+    async (
+      stepData: Partial<OnboardingData>,
+      additionalInput?: string
+    ): Promise<boolean> => {
       const currentStep = state.currentStep;
 
-      // Merge with existing data
-      const updatedData = { ...onboardingData, ...stepData };
-
-      if (!validateStepData(currentStep, updatedData)) {
-        setError(getValidationMessage(currentStep));
-        return false;
+      // Validate step data
+      if (!validateStepData(currentStep, stepData, additionalInput)) {
+        return false; // Let the screen handle the validation message
       }
 
       setLoading(true);
       clearError();
 
       try {
-        // Update local state
-        updateOnboardingData(stepData);
+        // Merge additional input into step data
+        const completeStepData = { ...stepData };
+        if (additionalInput && additionalInput.trim()) {
+          switch (currentStep) {
+            case 1:
+              completeStepData.energyPatternNote = additionalInput.trim();
+              break;
+            case 2:
+              completeStepData.workStyleNote = additionalInput.trim();
+              break;
+            case 3:
+              completeStepData.stressResponseNote = additionalInput.trim();
+              break;
+            case 5:
+              completeStepData.conversationText = additionalInput.trim();
+              break;
+          }
+        }
 
-        // For steps 1-3, save immediately to profile for persistence
+        // Update local state
+        updateOnboardingData(completeStepData);
+
+        // Prepare profile updates
         let profileUpdates: any = {
           onboardingStep: currentStep + 1,
-          onboardingCompleted: false, // CRITICAL: Explicitly keep onboarding as incomplete
+          onboardingCompleted: false, // Keep false until all steps complete
         };
 
         switch (currentStep) {
           case 1:
-            profileUpdates.chronotype = stepData.energyPattern;
+            if (completeStepData.energyPattern) {
+              profileUpdates.chronotype = completeStepData.energyPattern;
+            }
             break;
           case 2:
-            profileUpdates.workStyle = stepData.workStyle;
+            if (completeStepData.workStyle) {
+              profileUpdates.workStyle = completeStepData.workStyle;
+            }
             break;
           case 3:
-            profileUpdates.motivationType = stepData.stressResponse; // Map to existing field
+            if (completeStepData.stressResponse) {
+              profileUpdates.motivationType = completeStepData.stressResponse;
+            }
             break;
           case 4:
             profileUpdates.calendarConnected =
-              stepData.calendarConnected || false;
+              completeStepData.calendarConnected || false;
             break;
         }
 
@@ -170,7 +204,6 @@ export const useOnboarding = () => {
     },
     [
       state.currentStep,
-      onboardingData,
       validateStepData,
       setLoading,
       setError,
@@ -181,40 +214,26 @@ export const useOnboarding = () => {
   );
 
   /**
-   * Complete the onboarding process
+   * Complete the onboarding process (called only from step 5)
    */
   const completeOnboarding = useCallback(
-    async (finalData?: Partial<OnboardingData>): Promise<boolean> => {
+    async (conversationText: string): Promise<boolean> => {
       setLoading(true);
       clearError();
 
       try {
-        // Merge any final data
-        const finalOnboardingData = { ...onboardingData, ...finalData };
-
-        // Validate all steps are complete
-        for (let step = 1; step <= 5; step++) {
-          if (!validateStepData(step, finalOnboardingData)) {
-            setError(
-              `Step ${step} is incomplete. Please go back and complete it.`
-            );
-            return false;
-          }
-        }
+        // Final data includes conversation
+        const finalData = { ...onboardingData, conversationText };
 
         // Save final onboarding data
         const profileUpdates = {
-          onboardingCompleted: true,
+          onboardingCompleted: true, // Only set true here
           onboardingStep: 0, // Reset since completed
-          chronotype: finalOnboardingData.energyPattern,
-          workStyle: finalOnboardingData.workStyle,
-          motivationType: finalOnboardingData.stressResponse,
-          calendarConnected: finalOnboardingData.calendarConnected || false,
           onboardingNotes: {
-            energyPatternNote: finalOnboardingData.energyPatternNote,
-            workStyleNote: finalOnboardingData.workStyleNote,
-            stressResponseNote: finalOnboardingData.stressResponseNote,
-            conversationText: finalOnboardingData.conversationText,
+            energyPatternNote: finalData.energyPatternNote,
+            workStyleNote: finalData.workStyleNote,
+            stressResponseNote: finalData.stressResponseNote,
+            conversationText: finalData.conversationText,
           },
         };
 
@@ -239,61 +258,8 @@ export const useOnboarding = () => {
         return false;
       }
     },
-    [
-      onboardingData,
-      userProfile,
-      updateProfile,
-      validateStepData,
-      setLoading,
-      setError,
-      clearError,
-    ]
+    [onboardingData, updateProfile, setLoading, setError, clearError]
   );
-
-  /**
-   * Skip calendar connection and move to conversation
-   */
-  const skipCalendarConnection = useCallback(() => {
-    setState((prev) => ({ ...prev, currentStep: 5 }));
-  }, []);
-
-  /**
-   * Get validation message for current step
-   */
-  const getValidationMessage = useCallback((step: number): string => {
-    switch (step) {
-      case 1:
-        return "Please select when you feel most energetic.";
-      case 2:
-        return "Please select your preferred work style.";
-      case 3:
-        return "Please select how you handle stress.";
-      case 4:
-        return "Calendar connection is optional, you can continue.";
-      case 5:
-        return "Please share at least 20 characters about yourself to help Blob understand you better.";
-      default:
-        return "Please complete the required information.";
-    }
-  }, []);
-
-  /**
-   * Check if we can proceed from current step
-   */
-  const canProceed = useCallback(
-    (stepData: Partial<OnboardingData>): boolean => {
-      const mergedData = { ...onboardingData, ...stepData };
-      return validateStepData(state.currentStep, mergedData);
-    },
-    [state.currentStep, onboardingData, validateStepData]
-  );
-
-  /**
-   * Get onboarding progress percentage
-   */
-  const getProgress = useCallback((): number => {
-    return Math.round(((state.currentStep - 1) / 5) * 100);
-  }, [state.currentStep]);
 
   /**
    * Go back to previous step
@@ -305,6 +271,23 @@ export const useOnboarding = () => {
         currentStep: prev.currentStep - 1,
       }));
     }
+  }, [state.currentStep]);
+
+  /**
+   * Check if we can proceed from current step with given data and input
+   */
+  const canProceedWithData = useCallback(
+    (stepData: Partial<OnboardingData>, additionalInput?: string): boolean => {
+      return validateStepData(state.currentStep, stepData, additionalInput);
+    },
+    [state.currentStep, validateStepData]
+  );
+
+  /**
+   * Get onboarding progress percentage
+   */
+  const getProgress = useCallback((): number => {
+    return Math.round(((state.currentStep - 1) / 5) * 100);
   }, [state.currentStep]);
 
   return {
@@ -320,17 +303,14 @@ export const useOnboarding = () => {
     updateOnboardingData,
     saveStepAndContinue,
     completeOnboarding,
-    skipCalendarConnection,
     goBackStep,
     clearError,
 
     // Validation
     validateStepData,
-    getValidationMessage,
-    canProceed,
+    canProceedWithData,
 
     // Computed
-    isOnboardingComplete: userProfile?.onboardingCompleted || false,
-    isAIConfigured: openAIService.isConfigured(),
+    isOnboardingComplete: userProfile?.onboardingCompleted === true,
   };
 };

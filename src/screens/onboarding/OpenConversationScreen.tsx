@@ -1,4 +1,5 @@
-import React, { useState } from "react";
+// src/screens/onboarding/OpenConversationScreen.tsx
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -6,13 +7,14 @@ import {
   StyleSheet,
   TextInput,
   ScrollView,
+  Alert,
 } from "react-native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useNavigation } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
 import { Colors, Typography, Spacing, BorderRadius } from "@/constants";
-import OnboardingPageLayout from "@/components/onboarding/OnboardingPageLayout";
 import { OnboardingStackParamList } from "@/components/navigation/OnboardingNavigator";
+import { useOnboarding } from "@/hooks/useOnboarding";
 
 type NavigationProp = NativeStackNavigationProp<
   OnboardingStackParamList,
@@ -43,297 +45,347 @@ const quickPrompts: QuickPrompt[] = [
 
 const OpenConversationScreen = () => {
   const navigation = useNavigation<NavigationProp>();
+  const {
+    completeOnboarding,
+    isLoading,
+    hasError,
+    errorMessage,
+    clearError,
+    goBackStep,
+  } = useOnboarding();
+
   const [conversationText, setConversationText] = useState("");
   const [isCompleting, setIsCompleting] = useState(false);
 
-  const handleContinue = (additionalInput?: string) => {
-    // Combine main conversation text with any additional input
-    const fullConversation =
-      conversationText + (additionalInput ? `\n\n${additionalInput}` : "");
+  // Clear any previous errors when component mounts
+  useEffect(() => {
+    clearError();
+  }, [clearError]);
 
-    if (fullConversation.trim()) {
-      console.log("User conversation:", fullConversation);
+  // Show error alert if there's an error
+  useEffect(() => {
+    if (hasError && errorMessage) {
+      Alert.alert("Error", errorMessage, [{ text: "OK", onPress: clearError }]);
     }
-
-    // Complete onboarding
-    handleCompleteOnboarding();
-  };
+  }, [hasError, errorMessage, clearError]);
 
   const handleBack = () => {
+    goBackStep();
     navigation.goBack();
   };
 
   const handleCompleteOnboarding = async () => {
+    const text = conversationText.trim();
+
+    if (text.length < 20) {
+      Alert.alert(
+        "More Information Needed",
+        "Please share at least 20 characters about yourself to help Blob understand you better."
+      );
+      return;
+    }
+
     setIsCompleting(true);
 
     try {
-      // TODO: Save conversation data and mark onboarding as complete
-      console.log("Onboarding completed!");
+      const success = await completeOnboarding(text);
 
-      // Navigate to main app
-      // For now, just simulate completion
-      setTimeout(() => {
-        setIsCompleting(false);
-        // TODO: Navigate to main app
-        console.log("Navigate to main app");
-      }, 2000);
+      if (success) {
+        // Navigation will be handled automatically by AuthNavigator
+        console.log("Onboarding completed successfully!");
+      }
     } catch (error) {
-      setIsCompleting(false);
       console.error("Error completing onboarding:", error);
+    } finally {
+      setIsCompleting(false);
     }
   };
 
-  const handleQuickPrompt = (prompt: QuickPrompt) => {
-    let promptText = "";
-
-    switch (prompt.id) {
-      case "important":
-        promptText = "Something important I want you to know is: ";
-        break;
-      case "example":
-        promptText = "For example, ";
-        break;
-    }
-
-    setConversationText((prev) => prev + promptText);
-  };
-
-  const canContinue = conversationText.trim().length > 0;
+  const canComplete = conversationText.trim().length >= 20;
 
   return (
-    <OnboardingPageLayout
-      title="Open Conversation"
-      subtitle="Tell me everything about yourself, your goals, what you're working on in the long run or anything else that has to do with you getting this app, you'll be able to edit these later"
-      onBack={handleBack}
-      onContinue={handleContinue}
-      canContinue={canContinue}
-      inputPlaceholder="work, career, gym, health, projects. Write in details what you would like to achieve"
-    >
-      <View style={styles.container}>
-        {/* Main Conversation Input */}
-        <View style={styles.conversationSection}>
+    <View style={styles.container}>
+      {/* Header */}
+      <View style={styles.header}>
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={handleBack}
+          disabled={isLoading || isCompleting}
+        >
+          <Ionicons name="arrow-back" size={24} color={Colors.text.primary} />
+        </TouchableOpacity>
+
+        <View style={styles.headerContent}>
+          <Text style={styles.title}>Open Conversation</Text>
+          <Text style={styles.subtitle}>
+            Tell me everything about yourself, your goals, what you're working
+            on or anything you want Blob to know. The more you share, the better
+            I can help you.
+          </Text>
+        </View>
+      </View>
+
+      {/* Quick Prompts */}
+      <View style={styles.quickPromptsContainer}>
+        {quickPrompts.map((prompt) => (
+          <TouchableOpacity
+            key={prompt.id}
+            style={[
+              styles.quickPrompt,
+              prompt.type === "important" && styles.quickPromptImportant,
+            ]}
+            disabled={isLoading || isCompleting}
+          >
+            <Text style={styles.quickPromptIcon}>{prompt.icon}</Text>
+            <Text
+              style={[
+                styles.quickPromptLabel,
+                prompt.type === "important" && styles.quickPromptLabelImportant,
+              ]}
+            >
+              {prompt.label}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+
+      {/* Main Input Area */}
+      <View style={styles.inputContainer}>
+        <ScrollView
+          style={styles.inputScrollView}
+          showsVerticalScrollIndicator={false}
+        >
           <TextInput
             style={styles.conversationInput}
-            placeholder="Share your goals, challenges, and what you hope to achieve with Blob..."
+            placeholder="Start typing here... Tell me about your goals, challenges, daily routine, or anything else you'd like me to know."
             placeholderTextColor={Colors.text.muted}
             value={conversationText}
             onChangeText={setConversationText}
-            multiline
+            multiline={true}
             textAlignVertical="top"
+            editable={!isLoading && !isCompleting}
           />
+        </ScrollView>
+
+        {/* Character Count */}
+        <View style={styles.characterCount}>
+          <Text
+            style={[
+              styles.characterCountText,
+              conversationText.length >= 20 && styles.characterCountValid,
+            ]}
+          >
+            {conversationText.length}/20 characters minimum
+          </Text>
         </View>
+      </View>
 
-        {/* Quick Prompts */}
-        <View style={styles.quickPromptsSection}>
-          <Text style={styles.quickPromptsTitle}>Quick prompts:</Text>
-          <View style={styles.quickPrompts}>
-            {quickPrompts.map((prompt) => (
-              <TouchableOpacity
-                key={prompt.id}
-                style={[
-                  styles.quickPromptButton,
-                  prompt.type === "important" && styles.importantPrompt,
-                  prompt.type === "example" && styles.examplePrompt,
-                ]}
-                onPress={() => handleQuickPrompt(prompt)}
-                activeOpacity={0.7}
-              >
-                <View style={styles.promptIcon}>
-                  <Text style={styles.promptIconText}>{prompt.icon}</Text>
-                </View>
-                <Text
-                  style={[
-                    styles.promptLabel,
-                    prompt.type === "important" && styles.importantLabel,
-                    prompt.type === "example" && styles.exampleLabel,
-                  ]}
-                >
-                  {prompt.label}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </View>
-
-        {/* Completion Status */}
-        {isCompleting && (
-          <View style={styles.completionStatus}>
-            <View style={styles.completionCard}>
-              <Ionicons
-                name="checkmark-circle"
-                size={32}
-                color={Colors.success.main}
-              />
-              <Text style={styles.completionText}>
-                Setting up your personalized Blob experience...
-              </Text>
+      {/* Complete Button */}
+      <View style={styles.completeButtonContainer}>
+        <TouchableOpacity
+          style={[
+            styles.completeButton,
+            canComplete && styles.completeButtonEnabled,
+            (isLoading || isCompleting || !canComplete) &&
+              styles.completeButtonDisabled,
+          ]}
+          onPress={handleCompleteOnboarding}
+          disabled={isLoading || isCompleting || !canComplete}
+        >
+          {isCompleting || isLoading ? (
+            <View style={styles.loadingContainer}>
+              <Text style={styles.completeButtonText}>Completing...</Text>
             </View>
-          </View>
-        )}
+          ) : (
+            <Text
+              style={[
+                styles.completeButtonText,
+                !canComplete && styles.completeButtonTextDisabled,
+              ]}
+            >
+              Complete Onboarding
+            </Text>
+          )}
+        </TouchableOpacity>
 
-        {/* Encouragement Section */}
-        {conversationText.trim().length > 0 && (
-          <View style={styles.encouragementSection}>
-            <View style={styles.encouragementCard}>
-              <Text style={styles.encouragementTitle}>Great start! 🎉</Text>
-              <Text style={styles.encouragementText}>
-                The more you share, the better Blob can personalize your
-                experience. Feel free to add anything else that comes to mind.
-              </Text>
-            </View>
-          </View>
+        {!canComplete && (
+          <Text style={styles.completeHelpText}>
+            Share a bit more about yourself to continue
+          </Text>
         )}
       </View>
-    </OnboardingPageLayout>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    gap: Spacing.lg,
+    backgroundColor: Colors.background.primary,
   },
 
-  conversationSection: {
-    flex: 1,
-    minHeight: 200,
-  },
-
-  conversationInput: {
-    flex: 1,
-    backgroundColor: Colors.background.card,
-    borderRadius: BorderRadius.blob.medium,
-    padding: Spacing.lg,
-    borderWidth: 1,
-    borderColor: Colors.border.light,
-    ...Typography.bodyMedium,
-    color: Colors.text.primary,
-    textAlignVertical: "top",
-    shadowColor: Colors.neutral[200],
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 3,
-  },
-
-  quickPromptsSection: {
-    marginBottom: Spacing.md,
-  },
-
-  quickPromptsTitle: {
-    ...Typography.bodyMedium,
-    color: Colors.text.secondary,
-    marginBottom: Spacing.sm,
-    fontWeight: "500",
-  },
-
-  quickPrompts: {
+  header: {
     flexDirection: "row",
+    alignItems: "flex-start",
+    paddingTop: Spacing.xl,
+    paddingHorizontal: Spacing.lg,
+    paddingBottom: Spacing.lg,
+  },
+
+  backButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: Colors.background.secondary,
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: Spacing.md,
+  },
+
+  headerContent: {
+    flex: 1,
+  },
+
+  title: {
+    ...Typography.h1,
+    color: Colors.text.primary,
+    marginBottom: Spacing.sm,
+    fontWeight: "700",
+  },
+
+  subtitle: {
+    ...Typography.bodyLarge,
+    color: Colors.text.secondary,
+    lineHeight: 24,
+  },
+
+  quickPromptsContainer: {
+    flexDirection: "row",
+    paddingHorizontal: Spacing.lg,
+    paddingBottom: Spacing.lg,
     gap: Spacing.md,
   },
 
-  quickPromptButton: {
+  quickPrompt: {
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.sm,
-    borderRadius: 20,
-    borderWidth: 1,
-    gap: Spacing.xs,
-  },
-
-  importantPrompt: {
-    backgroundColor: Colors.background.card,
-    borderColor: Colors.error.main,
-  },
-
-  examplePrompt: {
     backgroundColor: Colors.background.secondary,
-    borderColor: Colors.border.medium,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: Colors.border.subtle,
   },
 
-  promptIcon: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    backgroundColor: Colors.text.primary,
-    justifyContent: "center",
-    alignItems: "center",
+  quickPromptImportant: {
+    backgroundColor: Colors.background.accent,
+    borderColor: Colors.primary.light,
   },
 
-  promptIconText: {
-    fontSize: 12,
+  quickPromptIcon: {
+    fontSize: 16,
+    marginRight: Spacing.xs,
   },
 
-  promptLabel: {
+  quickPromptLabel: {
     ...Typography.captionMedium,
+    color: Colors.text.secondary,
     fontWeight: "500",
   },
 
-  importantLabel: {
-    color: Colors.error.main,
-  },
-
-  exampleLabel: {
+  quickPromptLabelImportant: {
     color: Colors.text.primary,
-  },
-
-  encouragementSection: {
-    marginTop: Spacing.lg,
-  },
-
-  encouragementCard: {
-    backgroundColor: Colors.glass.background,
-    borderRadius: BorderRadius.blob.small,
-    padding: Spacing.lg,
-    borderWidth: 1,
-    borderColor: Colors.glass.border,
-  },
-
-  encouragementTitle: {
-    ...Typography.h4,
-    color: Colors.text.primary,
-    marginBottom: Spacing.sm,
     fontWeight: "600",
   },
 
-  encouragementText: {
-    ...Typography.bodyMedium,
-    color: Colors.text.secondary,
-    lineHeight: 22,
-  },
-
-  completionStatus: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: "rgba(255, 255, 255, 0.95)",
-    justifyContent: "center",
-    alignItems: "center",
-    zIndex: 1000,
-  },
-
-  completionCard: {
+  inputContainer: {
+    flex: 1,
+    marginHorizontal: Spacing.lg,
+    marginBottom: Spacing.lg,
     backgroundColor: Colors.background.card,
     borderRadius: BorderRadius.blob.medium,
-    padding: Spacing.xl,
-    alignItems: "center",
-    shadowColor: Colors.neutral[400],
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.2,
-    shadowRadius: 16,
-    elevation: 10,
-    margin: Spacing.lg,
+    borderWidth: 1,
+    borderColor: Colors.border.light,
+    padding: Spacing.lg,
   },
 
-  completionText: {
-    ...Typography.h4,
+  inputScrollView: {
+    flex: 1,
+  },
+
+  conversationInput: {
+    ...Typography.bodyMedium,
     color: Colors.text.primary,
+    minHeight: 200,
+    lineHeight: 24,
+    fontSize: 16,
+  },
+
+  characterCount: {
+    alignItems: "flex-end",
+    paddingTop: Spacing.sm,
+  },
+
+  characterCountText: {
+    ...Typography.captionSmall,
+    color: Colors.text.muted,
+  },
+
+  characterCountValid: {
+    color: Colors.success,
+    fontWeight: "600",
+  },
+
+  completeButtonContainer: {
+    paddingHorizontal: Spacing.lg,
+    paddingBottom: Spacing.xl,
+    alignItems: "center",
+  },
+
+  completeButton: {
+    width: "100%",
+    paddingVertical: Spacing.lg,
+    borderRadius: BorderRadius.lg,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: Spacing.sm,
+  },
+
+  completeButtonEnabled: {
+    backgroundColor: Colors.primary.main,
+    shadowColor: Colors.primary.main,
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    elevation: 6,
+  },
+
+  completeButtonDisabled: {
+    backgroundColor: Colors.background.muted,
+  },
+
+  loadingContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+
+  completeButtonText: {
+    ...Typography.buttonLarge,
+    color: Colors.text.onPrimary,
+    fontWeight: "700",
+  },
+
+  completeButtonTextDisabled: {
+    color: Colors.text.muted,
+  },
+
+  completeHelpText: {
+    ...Typography.captionMedium,
+    color: Colors.text.muted,
     textAlign: "center",
-    marginTop: Spacing.md,
-    fontWeight: "500",
   },
 });
 
