@@ -335,27 +335,43 @@ const GoalCreationModal: React.FC<GoalCreationModalProps> = ({
     }
   };
 
-  const renderButtons = () => (
-    <View style={styles.buttonContainer}>
-      {step > 1 && (
-        <TouchableOpacity
-          style={[
-            styles.button,
-            styles.primaryButton,
-            isCreating && styles.buttonDisabled,
-          ]}
-          onPress={handleCreateGoal}
-          disabled={isCreating}
-        >
-          {isCreating ? (
-            <ActivityIndicator color={Colors.text.onPrimary} />
-          ) : (
-            <Text style={styles.primaryButtonText}>Create Goal 🎯</Text>
-          )}
-        </TouchableOpacity>
-      )}
-    </View>
-  );
+const renderButtons = () => (
+  <View style={styles.buttonContainer}>
+    {step > 1 && (
+      <TouchableOpacity
+        style={[styles.button, styles.secondaryButton]}
+        onPress={handlePrevious}
+      >
+        <Text style={styles.secondaryButtonText}>Previous</Text>
+      </TouchableOpacity>
+    )}
+
+    {step < 3 ? (
+      <TouchableOpacity
+        style={[styles.button, styles.primaryButton]}
+        onPress={handleNext}
+      >
+        <Text style={styles.primaryButtonText}>Next</Text>
+      </TouchableOpacity>
+    ) : (
+      <TouchableOpacity
+        style={[
+          styles.button,
+          styles.primaryButton,
+          isCreating && styles.buttonDisabled,
+        ]}
+        onPress={handleCreateGoal}
+        disabled={isCreating}
+      >
+        {isCreating ? (
+          <ActivityIndicator color={Colors.text.onPrimary} />
+        ) : (
+          <Text style={styles.primaryButtonText}>Create Goal 🎯</Text>
+        )}
+      </TouchableOpacity>
+    )}
+  </View>
+);
 
   return (
     <Modal
