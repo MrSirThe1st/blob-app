@@ -5,6 +5,7 @@
 
 import { createClient } from '@supabase/supabase-js';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { ScheduledTask } from '../scheduling/SchedulingService';
 
 // Environment variables
 const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
@@ -52,9 +53,9 @@ export type Database = {
           avatar_url: string | null;
           onboarding_completed: boolean;
           onboarding_step: number;
-          chronotype: 'morning' | 'evening' | 'flexible' | null;
-          work_style: 'deep_focus' | 'multitasking' | 'balanced' | null;
-          motivation_type: 'intrinsic' | 'extrinsic' | 'mixed' | null;
+          chronotype: "morning" | "evening" | "flexible" | null;
+          work_style: "deep_focus" | "multitasking" | "balanced" | null;
+          motivation_type: "intrinsic" | "extrinsic" | "mixed" | null;
           work_start_time: string | null;
           work_end_time: string | null;
           break_duration: number;
@@ -68,10 +69,10 @@ export type Database = {
           calendar_provider: string | null;
           calendar_sync_token: string | null;
           last_calendar_sync: string | null;
+          timezone: string;
           created_at: string;
           updated_at: string;
           last_login: string | null;
-          timezone: string;
         };
         Insert: {
           id?: string;
@@ -80,9 +81,9 @@ export type Database = {
           avatar_url?: string | null;
           onboarding_completed?: boolean;
           onboarding_step?: number;
-          chronotype?: 'morning' | 'evening' | 'flexible' | null;
-          work_style?: 'deep_focus' | 'multitasking' | 'balanced' | null;
-          motivation_type?: 'intrinsic' | 'extrinsic' | 'mixed' | null;
+          chronotype?: "morning" | "evening" | "flexible" | null;
+          work_style?: "deep_focus" | "multitasking" | "balanced" | null;
+          motivation_type?: "intrinsic" | "extrinsic" | "mixed" | null;
           work_start_time?: string | null;
           work_end_time?: string | null;
           break_duration?: number;
@@ -96,10 +97,10 @@ export type Database = {
           calendar_provider?: string | null;
           calendar_sync_token?: string | null;
           last_calendar_sync?: string | null;
+          timezone?: string;
           created_at?: string;
           updated_at?: string;
           last_login?: string | null;
-          timezone?: string;
         };
         Update: {
           id?: string;
@@ -108,9 +109,9 @@ export type Database = {
           avatar_url?: string | null;
           onboarding_completed?: boolean;
           onboarding_step?: number;
-          chronotype?: 'morning' | 'evening' | 'flexible' | null;
-          work_style?: 'deep_focus' | 'multitasking' | 'balanced' | null;
-          motivation_type?: 'intrinsic' | 'extrinsic' | 'mixed' | null;
+          chronotype?: "morning" | "evening" | "flexible" | null;
+          work_style?: "deep_focus" | "multitasking" | "balanced" | null;
+          motivation_type?: "intrinsic" | "extrinsic" | "mixed" | null;
           work_start_time?: string | null;
           work_end_time?: string | null;
           break_duration?: number;
@@ -124,13 +125,70 @@ export type Database = {
           calendar_provider?: string | null;
           calendar_sync_token?: string | null;
           last_calendar_sync?: string | null;
+          timezone?: string;
           created_at?: string;
           updated_at?: string;
           last_login?: string | null;
-          timezone?: string;
         };
       };
-      // Add other table types as needed
+      schedules: {
+        Row: {
+          id: string;
+          user_id: string;
+          date: string;
+          tasks: ScheduledTask[];
+          total_scheduled_hours: number;
+          is_generated: boolean;
+          generated_at: string;
+          last_modified: string;
+          created_at: string;
+        };
+        Insert: {
+          id: string;
+          user_id: string;
+          date: string;
+          tasks: ScheduledTask[];
+          total_scheduled_hours?: number;
+          is_generated?: boolean;
+          generated_at?: string;
+          last_modified?: string;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          date?: string;
+          tasks?: ScheduledTask[];
+          total_scheduled_hours?: number;
+          is_generated?: boolean;
+          generated_at?: string;
+          last_modified?: string;
+          created_at?: string;
+        };
+      };
+    };
+    Views: {
+      schedule_with_user: {
+        Row: {
+          id: string;
+          user_id: string;
+          date: string;
+          tasks: ScheduledTask[];
+          total_scheduled_hours: number;
+          is_generated: boolean;
+          generated_at: string;
+          last_modified: string;
+          created_at: string;
+          full_name: string | null;
+          chronotype: "morning" | "evening" | "flexible" | null;
+          work_style: "deep_focus" | "multitasking" | "balanced" | null;
+          work_start_time: string | null;
+          work_end_time: string | null;
+          break_duration: number;
+          timezone: string;
+          ai_personality: any;
+        };
+      };
     };
   };
 };
