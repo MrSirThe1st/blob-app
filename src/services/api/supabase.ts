@@ -1,18 +1,21 @@
+// src/services/api/supabase.ts - Updated with Goals Table
 /**
  * Supabase client configuration
  * Central setup for database and authentication
  */
 
-import { createClient } from '@supabase/supabase-js';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { ScheduledTask } from '../scheduling/SchedulingService';
+import { createClient } from "@supabase/supabase-js";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { ScheduledTask } from "../scheduling/SchedulingService";
 
 // Environment variables
 const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
 const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
 
 if (!supabaseUrl || !supabaseAnonKey) {
-  throw new Error('Missing Supabase environment variables. Please check your .env file.');
+  throw new Error(
+    "Missing Supabase environment variables. Please check your .env file."
+  );
 }
 
 // Create Supabase client with React Native configuration
@@ -30,7 +33,7 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   // Global configuration
   global: {
     headers: {
-      'X-Client-Info': 'blob-ai-mobile',
+      "X-Client-Info": "blob-ai-mobile",
     },
   },
   // Real-time configuration for live updates
@@ -131,6 +134,74 @@ export type Database = {
           last_login?: string | null;
         };
       };
+      goals: {
+        Row: {
+          id: string;
+          user_id: string;
+          title: string;
+          description: string;
+          category:
+            | "health"
+            | "career"
+            | "personal"
+            | "learning"
+            | "relationships"
+            | "finance";
+          priority: "high" | "medium" | "low";
+          target_date: string | null;
+          is_completed: boolean;
+          completed_at: string | null;
+          progress: number;
+          ai_breakdown: any;
+          created_at: string;
+          updated_at: string;
+          last_progress_update: string | null;
+        };
+        Insert: {
+          id: string;
+          user_id: string;
+          title: string;
+          description: string;
+          category:
+            | "health"
+            | "career"
+            | "personal"
+            | "learning"
+            | "relationships"
+            | "finance";
+          priority: "high" | "medium" | "low";
+          target_date?: string | null;
+          is_completed?: boolean;
+          completed_at?: string | null;
+          progress?: number;
+          ai_breakdown: any;
+          created_at?: string;
+          updated_at?: string;
+          last_progress_update?: string | null;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          title?: string;
+          description?: string;
+          category?:
+            | "health"
+            | "career"
+            | "personal"
+            | "learning"
+            | "relationships"
+            | "finance";
+          priority?: "high" | "medium" | "low";
+          target_date?: string | null;
+          is_completed?: boolean;
+          completed_at?: string | null;
+          progress?: number;
+          ai_breakdown?: any;
+          created_at?: string;
+          updated_at?: string;
+          last_progress_update?: string | null;
+        };
+      };
       schedules: {
         Row: {
           id: string;
@@ -189,21 +260,52 @@ export type Database = {
           ai_personality: any;
         };
       };
+      goals_with_user: {
+        Row: {
+          id: string;
+          user_id: string;
+          title: string;
+          description: string;
+          category:
+            | "health"
+            | "career"
+            | "personal"
+            | "learning"
+            | "relationships"
+            | "finance";
+          priority: "high" | "medium" | "low";
+          target_date: string | null;
+          is_completed: boolean;
+          completed_at: string | null;
+          progress: number;
+          ai_breakdown: any;
+          created_at: string;
+          updated_at: string;
+          last_progress_update: string | null;
+          user_email: string;
+          user_name: string | null;
+        };
+      };
     };
   };
 };
 
 // Helper function to check if user is authenticated
 export const isAuthenticated = async (): Promise<boolean> => {
-  const { data: { session } } = await supabase.auth.getSession();
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
   return !!session?.user;
 };
 
 // Helper function to get current user
 export const getCurrentUser = async () => {
-  const { data: { user }, error } = await supabase.auth.getUser();
+  const {
+    data: { user },
+    error,
+  } = await supabase.auth.getUser();
   if (error) {
-    console.error('Error getting current user:', error);
+    console.error("Error getting current user:", error);
     return null;
   }
   return user;
@@ -212,16 +314,72 @@ export const getCurrentUser = async () => {
 // Helper function to get user profile
 export const getUserProfile = async (userId: string) => {
   const { data, error } = await supabase
-    .from('users')
-    .select('*')
-    .eq('id', userId)
+    .from("users")
+    .select("*")
+    .eq("id", userId)
     .single();
-    
+
   if (error) {
-    console.error('Error getting user profile:', error);
+    console.error("Error getting user profile:", error);
     return null;
   }
-  
+
+  return data;
+};
+
+// Helper function to get user goals
+export const getUserGoals = async (userId: string) => {
+  const { data, error } = await supabase
+    .from("goals")
+    .select("*")
+    .eq("user_id", userId)
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    console.error("Error getting user goals:", error);
+    return [];
+  }
+
+  return data;
+};
+
+// Helper function to create a new goal
+export const createGoal = async (
+  goalData: Database["public"]["Tables"]["goals"]["Insert"]
+) => {
+  const { data, error } = await supabase
+    .from("goals")
+    .insert(goalData)
+    .select()
+    .single();
+
+  if (error) {
+    console.error("Error creating goal:", error);
+    return null;
+  }
+
+  return data;
+};
+
+// Helper function to update goal progress
+export const updateGoalProgress = async (goalId: string, progress: number) => {
+  const { data, error } = await supabase
+    .from("goals")
+    .update({
+      progress,
+      is_completed: progress >= 100,
+      completed_at: progress >= 100 ? new Date().toISOString() : null,
+      last_progress_update: new Date().toISOString(),
+    })
+    .eq("id", goalId)
+    .select()
+    .single();
+
+  if (error) {
+    console.error("Error updating goal progress:", error);
+    return null;
+  }
+
   return data;
 };
 

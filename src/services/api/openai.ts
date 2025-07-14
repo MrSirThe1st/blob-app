@@ -32,11 +32,11 @@ export interface ScheduleRequest {
   };
   goals: string[];
   availableHours: number;
-  existingCommitments?: Array<{
+  existingCommitments?: {
     title: string;
     startTime: string;
     endTime: string;
-  }>;
+  }[];
 }
 
 export interface GeneratedTask {
@@ -77,7 +77,7 @@ class OpenAIService {
   /**
    * Make a request to OpenAI Chat Completions API
    */
-  private async makeRequest(
+  public async makeRequest(
     messages: ChatMessage[],
     functions?: any[]
   ): Promise<any> {
