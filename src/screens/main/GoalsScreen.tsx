@@ -2,8 +2,8 @@
 import { BorderRadius, Colors, Spacing, Typography } from "@/constants";
 import { useAuth } from "@/hooks/useAuth";
 import { Goal, goalsService } from "@/services/goals/GoalsService";
-import { taskGenerationService } from "@/services/tasks/TaskGenerationService";
-import { useFocusEffect } from "@react-navigation/native";
+import { integrationHelpers } from "@/services/integration/GoalTaskIntegration";
+import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import { useCallback, useState } from "react";
 import {
   ActivityIndicator,
@@ -24,6 +24,7 @@ import GoalDetailModal from "@/components/goals/GoalDetailModal";
 
 const GoalsScreen = () => {
   const { userProfile } = useAuth();
+  const navigation = useNavigation();
   const [goals, setGoals] = useState<Goal[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -74,34 +75,30 @@ const GoalsScreen = () => {
 
   const handleGoalCreated = async (newGoal: Goal) => {
     setGoals((prev) => [newGoal, ...prev]);
-
-    // NEW: Generate tasks from the new goal
-    if (newGoal.aiBreakdown && userProfile?.id) {
-      try {
-        await taskGenerationService.generateDailyTasks(
-          userProfile.id,
-          newGoal.aiBreakdown,
-          {} // user preferences
-        );
-
-        Alert.alert(
-          "Success",
-          "Goal created and daily tasks generated! Check your Today screen."
-        );
-      } catch (error) {
-        console.error("Error generating tasks:", error);
-        Alert.alert(
-          "Goal Created",
-          "Goal created successfully, but failed to generate tasks."
-        );
-      }
-    }
-
     setGoalsOverview((prev) => ({
       ...prev,
       totalGoals: prev.totalGoals + 1,
       activeGoals: prev.activeGoals + 1,
     }));
+    // NEW: Integrate with task system
+    if (userProfile?.id) {
+      try {
+        await integrationHelpers.onGoalCreated(newGoal, userProfile.id);
+        Alert.alert(
+          "Success!",
+          "Goal created and daily tasks generated! Check your Today screen to see your personalized tasks.",
+          [
+            { text: "View Tasks", onPress: () => navigation.navigate("Today") },
+            { text: "OK" },
+          ]
+        );
+      } catch (error) {
+        Alert.alert(
+          "Goal Created",
+          "Goal created successfully! Task generation will happen in the background."
+        );
+      }
+    }
     setShowCreateModal(false);
   };
 
