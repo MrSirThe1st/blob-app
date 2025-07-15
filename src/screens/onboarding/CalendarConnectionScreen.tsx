@@ -4,11 +4,11 @@ import {
   Text,
   TouchableOpacity,
   StyleSheet,
-  SafeAreaView,
   Animated,
   Alert,
 } from "react-native";
-import { useRouter } from "expo-router";
+import { NativeStackNavigationProp } from "@react-navigation/native-stack";
+import { useNavigation } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
 import {
   Colors,
@@ -18,6 +18,12 @@ import {
   Padding,
 } from "@/constants";
 import OnboardingPageLayout from "@/components/onboarding/OnboardingPageLayout";
+import { OnboardingStackParamList } from "@/components/navigation/OnboardingNavigator";
+
+type NavigationProp = NativeStackNavigationProp<
+  OnboardingStackParamList,
+  "CalendarConnection"
+>;
 
 interface CalendarProvider {
   id: string;
@@ -59,8 +65,8 @@ const calendarProviders: CalendarProvider[] = [
 
 type ConnectionStatus = "idle" | "connecting" | "connected" | "error";
 
-export default function CalendarConnectionStep() {
-  const router = useRouter();
+export default function CalendarConnectionScreen() {
+  const navigation = useNavigation<NavigationProp>();
   const [selectedProvider, setSelectedProvider] = useState<string | null>(null);
   const [connectionStatus, setConnectionStatus] =
     useState<ConnectionStatus>("idle");
@@ -78,7 +84,7 @@ export default function CalendarConnectionStep() {
 
       // Auto-advance to next step after successful connection
       setTimeout(() => {
-        router.push("/onboarding/step-5");
+        navigation.navigate("OpenConversation");
       }, 1500);
     } catch (error) {
       setConnectionStatus("error");
@@ -95,8 +101,8 @@ export default function CalendarConnectionStep() {
 
   const handleSkip = () => {
     if (showSkipConfirmation) {
-      // User confirmed skip
-      router.push("/onboarding/step-5");
+      // User confirmed skip - navigate to OpenConversation
+      navigation.navigate("OpenConversation");
     } else {
       // Show confirmation
       setShowSkipConfirmation(true);
@@ -104,7 +110,12 @@ export default function CalendarConnectionStep() {
   };
 
   const handleBack = () => {
-    router.back();
+    navigation.goBack();
+  };
+
+  const handleContinue = () => {
+    // Navigate to OpenConversation when calendar is connected
+    navigation.navigate("OpenConversation");
   };
 
   const simulateConnection = (providerId: string): Promise<void> => {
@@ -127,7 +138,7 @@ export default function CalendarConnectionStep() {
       title="Connect Your Calendar"
       subtitle="Blob needs to know when you're busy to create realistic schedules around your existing commitments."
       onBack={handleBack}
-      onContinue={() => router.push("/onboarding/step-5")}
+      onContinue={handleContinue}
       canContinue={canContinue}
       hideNavigation={connectionStatus === "connecting" || showSkipConfirmation}
     >
