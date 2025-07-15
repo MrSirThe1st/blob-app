@@ -1,38 +1,65 @@
-// src/screens/main/TodayScreen.tsx
-import React from "react";
+// src/screens/main/TodayScreen.tsx (Enhanced with AI Scheduling)
 import {
-  View,
-  Text,
-  TouchableOpacity,
-  ScrollView,
-  StyleSheet,
-  Alert,
-  RefreshControl,
-} from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+  EmptyTasksState,
+  ProgressBlob,
+  TaskCard,
+  TaskDetailModal,
+} from "@/components/tasks";
 import {
-  Colors,
-  Typography,
-  Spacing,
   BorderRadius,
+  Colors,
   Padding,
+  Spacing,
+  Typography,
 } from "@/constants";
 import { useAuth } from "@/hooks/useAuth";
+import { useScheduling } from "@/hooks/useScheduling";
 import { useTasks } from "@/hooks/useTasks";
 import { Task } from "@/types/tasks";
+import { useState } from "react";
+import {
+  Alert,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 const TodayScreen = () => {
   const { userProfile } = useAuth();
   const {
     tasks,
     taskStats,
-    loading,
-    error,
+    loading: tasksLoading,
+    error: tasksError,
     loadTasks,
     completeTask,
     rescheduleTask,
-    clearError,
+    clearError: clearTasksError,
   } = useTasks(userProfile?.id);
+
+  const {
+    schedule,
+    basicSchedule,
+    loading: scheduleLoading,
+    error: scheduleError,
+    generateAISchedule,
+    generateBasicSchedule,
+    getBestSchedule,
+    hasAISchedule,
+    clearError: clearScheduleError,
+  } = useScheduling(userProfile?.id);
+
+  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+  const [showTaskDetail, setShowTaskDetail] = useState(false);
+  const [showScheduleView, setShowScheduleView] = useState(false);
+
+  const currentSchedule = getBestSchedule();
+  const loading = tasksLoading || scheduleLoading;
+  const error = tasksError || scheduleError;
 
   const handleTaskComplete = async (taskId: string) => {
     try {
@@ -66,6 +93,41 @@ const TodayScreen = () => {
     ]);
   };
 
+  const handleTaskPress = (task: Task) => {
+    setSelectedTask(task);
+    setShowTaskDetail(true);
+  };
+
+  const handleTaskUpdate = async (taskId: string, updates: Partial<Task>) => {
+    try {
+      setShowTaskDetail(false);
+      await loadTasks();
+    } catch (error) {
+      Alert.alert("Error", "Failed to update task");
+    }
+  };
+
+  const handleGenerateSchedule = async () => {
+    try {
+      await generateAISchedule();
+      Alert.alert("Success", "AI-optimized schedule generated!");
+    } catch (error) {
+      // Fallback to basic schedule
+      await generateBasicSchedule();
+      Alert.alert(
+        "Info",
+        "Basic schedule generated. AI scheduling temporarily unavailable."
+      );
+    }
+  };
+
+  const handleRefresh = async () => {
+    await Promise.all([
+      loadTasks(),
+      generateAISchedule().catch(() => generateBasicSchedule()),
+    ]);
+  };
+
   if (error) {
     return (
       <SafeAreaView style={styles.container}>
@@ -75,8 +137,9 @@ const TodayScreen = () => {
           <TouchableOpacity
             style={styles.retryButton}
             onPress={() => {
-              clearError();
-              loadTasks();
+              clearTasksError();
+              clearScheduleError();
+              handleRefresh();
             }}
           >
             <Text style={styles.retryButtonText}>Try Again</Text>
@@ -91,25 +154,41 @@ const TodayScreen = () => {
       <ScrollView
         style={styles.scrollView}
         refreshControl={
-          <RefreshControl refreshing={loading} onRefresh={loadTasks} />
+          <RefreshControl refreshing={loading} onRefresh={handleRefresh} />
         }
       >
         <View style={styles.content}>
           {/* Header */}
           <View style={styles.header}>
-            <Text style={styles.title}>Today</Text>
-            <Text style={styles.date}>
-              {new Date().toLocaleDateString("en-US", {
-                weekday: "long",
-                month: "long",
-                day: "numeric",
-              })}
-            </Text>
+            <View>
+              <Text style={styles.title}>Today</Text>
+              <Text style={styles.date}>
+                {new Date().toLocaleDateString("en-US", {
+                  weekday: "long",
+                  month: "long",
+                  day: "numeric",
+                })}
+              </Text>
+            </View>
+
+            {/* AI Schedule Indicator */}
+            {hasAISchedule && (
+              <View style={styles.aiIndicator}>
+                <Text style={styles.aiIndicatorText}>AI ✨</Text>
+              </View>
+            )}
           </View>
 
           {/* Progress Overview */}
           <View style={styles.progressCard}>
-            <Text style={styles.cardTitle}>Progress</Text>
+            <View style={styles.progressHeader}>
+              <Text style={styles.cardTitle}>Progress</Text>
+              <ProgressBlob
+                completed={taskStats.completed}
+                total={taskStats.total}
+              />
+            </View>
+
             <View style={styles.progressStats}>
               <View style={styles.statItem}>
                 <Text style={styles.statNumber}>{taskStats.completed}</Text>
@@ -128,123 +207,138 @@ const TodayScreen = () => {
             </View>
           </View>
 
+          {/* Schedule Overview */}
+          {currentSchedule && (
+            <View style={styles.scheduleCard}>
+              <View style={styles.scheduleHeader}>
+                <Text style={styles.cardTitle}>
+                  {hasAISchedule ? "AI-Optimized Schedule" : "Daily Schedule"}
+                </Text>
+                <TouchableOpacity
+                  onPress={() => setShowScheduleView(!showScheduleView)}
+                >
+                  <Text style={styles.viewToggle}>
+                    {showScheduleView ? "Hide" : "View"}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+
+              {showScheduleView && (
+                <View style={styles.scheduleContent}>
+                  {/* AI Schedule */}
+                  {hasAISchedule && schedule?.timeBlocks && (
+                    <View style={styles.timeBlocks}>
+                      {schedule.timeBlocks.slice(0, 4).map((block, index) => (
+                        <View key={index} style={styles.timeBlock}>
+                          <Text style={styles.timeBlockTime}>
+                            {block.startTime} - {block.endTime}
+                          </Text>
+                          <Text style={styles.timeBlockTitle}>
+                            {block.taskTitle}
+                          </Text>
+                          <Text style={styles.timeBlockMeta}>
+                            {block.energyLevel} energy • {block.priority}{" "}
+                            priority
+                          </Text>
+                        </View>
+                      ))}
+                    </View>
+                  )}
+
+                  {/* Basic Schedule Fallback */}
+                  {!hasAISchedule && basicSchedule?.tasks && (
+                    <View style={styles.timeBlocks}>
+                      {basicSchedule.tasks
+                        .slice(0, 4)
+                        .map((task: any, index: number) => (
+                          <View key={index} style={styles.timeBlock}>
+                            <Text style={styles.timeBlockTime}>
+                              {task.startTime} - {task.endTime}
+                            </Text>
+                            <Text style={styles.timeBlockTitle}>
+                              {task.title}
+                            </Text>
+                            <Text style={styles.timeBlockMeta}>
+                              {task.priority} priority •{" "}
+                              {task.estimatedDuration}min
+                            </Text>
+                          </View>
+                        ))}
+                    </View>
+                  )}
+
+                  {/* AI Recommendations */}
+                  {hasAISchedule && schedule?.recommendations && (
+                    <View style={styles.recommendationsSection}>
+                      <Text style={styles.recommendationsTitle}>
+                        💡 AI Recommendations
+                      </Text>
+                      {schedule.recommendations
+                        .slice(0, 2)
+                        .map((rec, index) => (
+                          <Text key={index} style={styles.recommendation}>
+                            • {rec}
+                          </Text>
+                        ))}
+                    </View>
+                  )}
+                </View>
+              )}
+            </View>
+          )}
+
+          {/* Schedule Actions */}
+          <View style={styles.scheduleActions}>
+            <TouchableOpacity
+              style={styles.scheduleActionButton}
+              onPress={handleGenerateSchedule}
+            >
+              <Text style={styles.scheduleActionText}>
+                {hasAISchedule
+                  ? "🔄 Regenerate AI Schedule"
+                  : "✨ Generate AI Schedule"}
+              </Text>
+            </TouchableOpacity>
+          </View>
+
           {/* Task List */}
           {loading && tasks.length === 0 ? (
             <View style={styles.loadingCard}>
               <Text style={styles.loadingText}>Loading your tasks...</Text>
             </View>
           ) : tasks.length === 0 ? (
-            <View style={styles.emptyCard}>
-              <Text style={styles.emptyTitle}>No tasks for today</Text>
-              <Text style={styles.emptySubtitle}>
-                Great! You're all caught up. Add a new task or take a
-                well-deserved break.
-              </Text>
-            </View>
+            <EmptyTasksState />
           ) : (
             <View style={styles.tasksContainer}>
               <Text style={styles.sectionTitle}>Today's Tasks</Text>
               {tasks.map((task) => (
-                <TaskCard
+                <TouchableOpacity
                   key={task.id}
-                  task={task}
-                  onComplete={() => handleTaskComplete(task.id)}
-                  onReschedule={() => handleTaskReschedule(task.id)}
-                />
+                  onPress={() => handleTaskPress(task)}
+                >
+                  <TaskCard
+                    task={task}
+                    onComplete={() => handleTaskComplete(task.id)}
+                    onReschedule={() => handleTaskReschedule(task.id)}
+                  />
+                </TouchableOpacity>
               ))}
             </View>
           )}
         </View>
       </ScrollView>
-    </SafeAreaView>
-  );
-};
 
-// Task Card Component
-const TaskCard: React.FC<{
-  task: Task;
-  onComplete: () => void;
-  onReschedule: () => void;
-}> = ({ task, onComplete, onReschedule }) => {
-  const getPriorityColor = (priority: string) => {
-    switch (priority) {
-      case "high":
-        return Colors.error;
-      case "medium":
-        return Colors.warning;
-      case "low":
-        return Colors.success;
-      default:
-        return Colors.text.muted;
-    }
-  };
-
-  const isCompleted = task.status === "completed";
-
-  return (
-    <View style={[styles.taskCard, isCompleted && styles.completedTaskCard]}>
-      {/* Priority Indicator */}
-      <View
-        style={[
-          styles.priorityIndicator,
-          { backgroundColor: getPriorityColor(task.priority) },
-        ]}
+      {/* Task Detail Modal */}
+      <TaskDetailModal
+        task={selectedTask}
+        visible={showTaskDetail}
+        onClose={() => {
+          setShowTaskDetail(false);
+          setSelectedTask(null);
+        }}
+        onUpdate={handleTaskUpdate}
       />
-
-      {/* Task Content */}
-      <View style={styles.taskContent}>
-        <Text
-          style={[styles.taskTitle, isCompleted && styles.completedTaskTitle]}
-        >
-          {task.title}
-        </Text>
-
-        {task.description && (
-          <Text style={styles.taskDescription}>{task.description}</Text>
-        )}
-
-        <View style={styles.taskMeta}>
-          {task.estimated_duration && (
-            <View style={styles.metaItem}>
-              <Text style={styles.metaText}>{task.estimated_duration} min</Text>
-            </View>
-          )}
-
-          {task.suggested_time_slot && (
-            <View style={styles.metaItem}>
-              <Text style={styles.metaText}>{task.suggested_time_slot}</Text>
-            </View>
-          )}
-
-          {task.energy_level_required && (
-            <View style={styles.metaItem}>
-              <Text style={styles.metaText}>
-                {task.energy_level_required} energy
-              </Text>
-            </View>
-          )}
-        </View>
-      </View>
-
-      {/* Action Buttons */}
-      {!isCompleted && (
-        <View style={styles.taskActions}>
-          <TouchableOpacity
-            style={[styles.actionButton, styles.completeButton]}
-            onPress={onComplete}
-          >
-            <Text style={styles.completeButtonText}>✓</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.actionButton, styles.rescheduleButton]}
-            onPress={onReschedule}
-          >
-            <Text style={styles.rescheduleButtonText}>⏰</Text>
-          </TouchableOpacity>
-        </View>
-      )}
-    </View>
+    </SafeAreaView>
   );
 };
 
@@ -260,6 +354,9 @@ const styles = StyleSheet.create({
     padding: Spacing.lg,
   },
   header: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
     marginBottom: Spacing.xl,
   },
   title: {
@@ -271,16 +368,32 @@ const styles = StyleSheet.create({
     ...Typography.bodyMedium,
     color: Colors.text.secondary,
   },
+  aiIndicator: {
+    backgroundColor: Colors.primary.main,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: Spacing.xs,
+    borderRadius: BorderRadius.md,
+  },
+  aiIndicatorText: {
+    ...Typography.captionSmall,
+    color: Colors.text.onPrimary,
+    fontWeight: "bold",
+  },
   progressCard: {
     backgroundColor: Colors.background.card,
     padding: Padding.card.medium,
     borderRadius: BorderRadius.blob.medium,
     marginBottom: Spacing.lg,
   },
+  progressHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: Spacing.md,
+  },
   cardTitle: {
     ...Typography.h3,
     color: Colors.text.primary,
-    marginBottom: Spacing.md,
   },
   progressStats: {
     flexDirection: "row",
@@ -298,6 +411,79 @@ const styles = StyleSheet.create({
     ...Typography.captionMedium,
     color: Colors.text.muted,
   },
+  scheduleCard: {
+    backgroundColor: Colors.background.card,
+    padding: Padding.card.medium,
+    borderRadius: BorderRadius.blob.medium,
+    marginBottom: Spacing.lg,
+  },
+  scheduleHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: Spacing.md,
+  },
+  viewToggle: {
+    ...Typography.bodyMedium,
+    color: Colors.primary.main,
+  },
+  scheduleContent: {
+    marginTop: Spacing.sm,
+  },
+  timeBlocks: {
+    gap: Spacing.sm,
+  },
+  timeBlock: {
+    backgroundColor: Colors.background.secondary,
+    padding: Padding.card.small,
+    borderRadius: BorderRadius.md,
+  },
+  timeBlockTime: {
+    ...Typography.captionMedium,
+    color: Colors.primary.main,
+    fontWeight: "bold",
+  },
+  timeBlockTitle: {
+    ...Typography.bodyMedium,
+    color: Colors.text.primary,
+    marginVertical: Spacing.xs,
+  },
+  timeBlockMeta: {
+    ...Typography.captionSmall,
+    color: Colors.text.muted,
+  },
+  recommendationsSection: {
+    marginTop: Spacing.md,
+    paddingTop: Spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: Colors.background.secondary,
+  },
+  recommendationsTitle: {
+    ...Typography.bodyMedium,
+    color: Colors.text.primary,
+    fontWeight: "bold",
+    marginBottom: Spacing.sm,
+  },
+  recommendation: {
+    ...Typography.bodySmall,
+    color: Colors.text.secondary,
+    marginBottom: Spacing.xs,
+    fontStyle: "italic",
+  },
+  scheduleActions: {
+    marginBottom: Spacing.lg,
+  },
+  scheduleActionButton: {
+    backgroundColor: Colors.primary.main,
+    paddingVertical: Padding.button.medium.vertical,
+    paddingHorizontal: Padding.button.medium.horizontal,
+    borderRadius: BorderRadius.md,
+    alignItems: "center",
+  },
+  scheduleActionText: {
+    ...Typography.buttonMedium,
+    color: Colors.text.onPrimary,
+  },
   loadingCard: {
     backgroundColor: Colors.background.card,
     padding: Padding.card.medium,
@@ -308,22 +494,6 @@ const styles = StyleSheet.create({
     ...Typography.bodyMedium,
     color: Colors.text.muted,
   },
-  emptyCard: {
-    backgroundColor: Colors.background.card,
-    padding: Padding.card.medium,
-    borderRadius: BorderRadius.blob.medium,
-    alignItems: "center",
-  },
-  emptyTitle: {
-    ...Typography.h3,
-    color: Colors.text.primary,
-    marginBottom: Spacing.sm,
-  },
-  emptySubtitle: {
-    ...Typography.bodyMedium,
-    color: Colors.text.secondary,
-    textAlign: "center",
-  },
   tasksContainer: {
     marginTop: Spacing.md,
   },
@@ -331,85 +501,6 @@ const styles = StyleSheet.create({
     ...Typography.h3,
     color: Colors.text.primary,
     marginBottom: Spacing.md,
-  },
-  taskCard: {
-    backgroundColor: Colors.background.card,
-    borderRadius: BorderRadius.blob.medium,
-    padding: Padding.card.medium,
-    marginBottom: Spacing.md,
-    flexDirection: "row",
-    alignItems: "center",
-    shadowColor: Colors.shadow || "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  completedTaskCard: {
-    opacity: 0.6,
-  },
-  priorityIndicator: {
-    width: 4,
-    height: "100%",
-    borderRadius: BorderRadius.sm,
-    marginRight: Spacing.md,
-  },
-  taskContent: {
-    flex: 1,
-  },
-  taskTitle: {
-    ...Typography.bodyLarge,
-    color: Colors.text.primary,
-    marginBottom: Spacing.xs,
-  },
-  completedTaskTitle: {
-    textDecorationLine: "line-through",
-    color: Colors.text.muted,
-  },
-  taskDescription: {
-    ...Typography.bodySmall,
-    color: Colors.text.secondary,
-    marginBottom: Spacing.sm,
-  },
-  taskMeta: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: Spacing.sm,
-  },
-  metaItem: {
-    backgroundColor: Colors.background.secondary,
-    paddingHorizontal: Spacing.sm,
-    paddingVertical: Spacing.xs,
-    borderRadius: BorderRadius.sm,
-  },
-  metaText: {
-    ...Typography.captionSmall,
-    color: Colors.text.muted,
-  },
-  taskActions: {
-    flexDirection: "row",
-    gap: Spacing.sm,
-  },
-  actionButton: {
-    width: 40,
-    height: 40,
-    borderRadius: BorderRadius.md,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  completeButton: {
-    backgroundColor: Colors.success,
-  },
-  completeButtonText: {
-    color: Colors.text.onPrimary,
-    fontSize: 18,
-    fontWeight: "bold",
-  },
-  rescheduleButton: {
-    backgroundColor: Colors.background.secondary,
-  },
-  rescheduleButtonText: {
-    fontSize: 16,
   },
   errorContainer: {
     flex: 1,
