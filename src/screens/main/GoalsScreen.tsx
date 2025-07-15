@@ -2,6 +2,7 @@
 import { BorderRadius, Colors, Spacing, Typography } from "@/constants";
 import { useAuth } from "@/hooks/useAuth";
 import { Goal, goalsService } from "@/services/goals/GoalsService";
+import { taskGenerationService } from "@/services/tasks/TaskGenerationService";
 import { useFocusEffect } from "@react-navigation/native";
 import { useCallback, useState } from "react";
 import {
@@ -37,14 +38,8 @@ const GoalsScreen = () => {
     totalXPFromGoals: 0,
   });
 
-  // Load goals when screen focuses
-  useFocusEffect(
-    useCallback(() => {
-      loadGoals();
-    }, [])
-  );
-
-  const loadGoals = async () => {
+  // Memoized loadGoals function
+  const loadGoals = useCallback(async () => {
     if (!userProfile?.id) return;
 
     try {
@@ -62,7 +57,14 @@ const GoalsScreen = () => {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [userProfile?.id]);
+
+  // Load goals when screen focuses
+  useFocusEffect(
+    useCallback(() => {
+      loadGoals();
+    }, [loadGoals])
+  );
 
   const handleRefresh = async () => {
     setIsRefreshing(true);
@@ -70,8 +72,31 @@ const GoalsScreen = () => {
     setIsRefreshing(false);
   };
 
-  const handleGoalCreated = (newGoal: Goal) => {
+  const handleGoalCreated = async (newGoal: Goal) => {
     setGoals((prev) => [newGoal, ...prev]);
+
+    // NEW: Generate tasks from the new goal
+    if (newGoal.aiBreakdown && userProfile?.id) {
+      try {
+        await taskGenerationService.generateDailyTasks(
+          userProfile.id,
+          newGoal.aiBreakdown,
+          {} // user preferences
+        );
+
+        Alert.alert(
+          "Success",
+          "Goal created and daily tasks generated! Check your Today screen."
+        );
+      } catch (error) {
+        console.error("Error generating tasks:", error);
+        Alert.alert(
+          "Goal Created",
+          "Goal created successfully, but failed to generate tasks."
+        );
+      }
+    }
+
     setGoalsOverview((prev) => ({
       ...prev,
       totalGoals: prev.totalGoals + 1,
@@ -172,7 +197,7 @@ const GoalsScreen = () => {
           <Text style={styles.statLabel}>Total Goals</Text>
         </View>
         <View style={styles.statItem}>
-          <Text style={[styles.statNumber, { color: Colors.success }]}>
+          <Text style={[styles.statNumber, { color: Colors.success.main }]}>
             {goalsOverview.completedGoals}
           </Text>
           <Text style={styles.statLabel}>Completed</Text>
@@ -184,7 +209,7 @@ const GoalsScreen = () => {
           <Text style={styles.statLabel}>Active</Text>
         </View>
         <View style={styles.statItem}>
-          <Text style={[styles.statNumber, { color: Colors.warning }]}>
+          <Text style={[styles.statNumber, { color: Colors.warning.main }]}>
             {goalsOverview.averageProgress}%
           </Text>
           <Text style={styles.statLabel}>Avg Progress</Text>
