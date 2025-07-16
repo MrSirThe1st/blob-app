@@ -59,196 +59,6 @@ export interface ScheduleResponse {
 }
 
 class OpenAIService {
-  /**
-   * Extract specific goals from onboarding conversation for automatic goal creation
-   * This is the key method that converts conversation into actual Goal database records
-   */
-  async extractGoalsForCreation(
-    conversationText: string,
-    basicProfile: {
-      energyPattern?: string;
-      workStyle?: string;
-      stressResponse?: string;
-    }
-  ): Promise<
-    {
-      title: string;
-      description: string;
-      category:
-        | "fitness"
-        | "career"
-        | "learning"
-        | "personal"
-        | "finance"
-        | "relationships";
-      priority: "low" | "medium" | "high";
-      targetDate?: string;
-      userContext: string;
-    }[]
-  > {
-    try {
-      const systemPrompt: ChatMessage = {
-        role: "system",
-        content: `You are an expert goal-setting AI that extracts specific, actionable goals from user conversations.
-
-CRITICAL: The user just completed onboarding and expects to see GOALS automatically created from their conversation. You must extract 2-4 concrete, achievable goals.
-
-Your job is to:
-1. Identify specific goals the user mentioned or implied
-2. Convert vague aspirations into concrete, actionable goals
-3. Assign appropriate categories and priorities
-4. Provide meaningful descriptions that connect to their conversation
-
-GOAL CATEGORIES (choose the best fit):
-- fitness: Physical health, exercise, wellness
-- career: Work advancement, skills, professional development  
-- learning: Education, new skills, knowledge acquisition
-- personal: Habits, routines, self-improvement, productivity
-- finance: Money management, saving, investing
-- relationships: Social connections, family, networking
-
-PRIORITY LEVELS:
-- high: User expressed strong desire/urgency
-- medium: Important but not urgent
-- low: Nice to have, mentioned casually
-
-TARGET DATES (optional):
-- Only include if user mentioned specific timeframes
-- Format: "2024-12-31" (YYYY-MM-DD)
-
-USER CONTEXT:
-- This should capture WHY this goal matters to the user based on their conversation
-- Include specific challenges, motivations, or circumstances they mentioned
-
-RESPONSE FORMAT - Return valid JSON array:
-[
-  {
-    "title": "Specific, action-oriented goal title (max 50 chars)",
-    "description": "Clear description of what success looks like and why it matters to them",
-    "category": "one of the valid categories",
-    "priority": "high/medium/low", 
-    "targetDate": "2024-12-31" or null,
-    "userContext": "Why this goal matters based on their conversation, any challenges they mentioned"
-  }
-]
-
-EXAMPLES OF GOOD GOAL EXTRACTION:
-
-If user said: "I want to get healthier and I've been trying to exercise but I keep skipping it"
-Extract: {
-  "title": "Build Consistent Exercise Habit",
-  "description": "Establish a regular workout routine that sticks, focusing on consistency over intensity",
-  "category": "fitness",
-  "priority": "high",
-  "userContext": "User struggles with exercise consistency and wants to improve health"
-}
-
-If user said: "I'm learning Python but I don't have time and get distracted"
-Extract: {
-  "title": "Master Python Programming",
-  "description": "Develop proficiency in Python through structured, focused learning sessions",
-  "category": "learning", 
-  "priority": "high",
-  "userContext": "User is learning Python but struggles with time management and focus"
-}
-
-IMPORTANT RULES:
-- Extract 2-4 goals maximum (quality over quantity)
-- Make titles specific and actionable
-- Base everything on what the user actually said
-- If conversation is vague, create reasonable personal development goals
-- Every goal must be achievable and meaningful`,
-      };
-
-      const extractionPrompt: ChatMessage = {
-        role: "user",
-        content: `Extract goals from this onboarding conversation:
-
-CONVERSATION TEXT:
-"${conversationText}"
-
-USER PROFILE:
-- Energy Pattern: ${basicProfile.energyPattern || "Not specified"}
-- Work Style: ${basicProfile.workStyle || "Not specified"}  
-- Stress Response: ${basicProfile.stressResponse || "Not specified"}
-
-Based on this conversation, extract 2-4 specific goals that this user would want to work on. Make them actionable and meaningful to their situation.`,
-      };
-
-      const response = await this.makeRequest([systemPrompt, extractionPrompt]);
-
-      if (response.choices?.[0]?.message?.content) {
-        try {
-          const extractedGoals = JSON.parse(
-            response.choices[0].message.content
-          );
-
-          // Validate the response structure
-          if (Array.isArray(extractedGoals) && extractedGoals.length > 0) {
-            return extractedGoals.filter(
-              (goal) =>
-                goal.title &&
-                goal.description &&
-                goal.category &&
-                goal.priority &&
-                goal.userContext
-            );
-          }
-        } catch (parseError) {
-          console.error("Failed to parse extracted goals:", parseError);
-        }
-      }
-
-      // Fallback: return empty array so OnboardingCompletionService can use defaults
-      return [];
-    } catch (error) {
-      console.error("Error extracting goals for creation:", error);
-      return [];
-    }
-  }
-
-  /**
-   * Enhanced method to analyze conversation and create actionable insights
-   */
-  async analyzeOnboardingForGoalCreation(
-    conversationText: string,
-    basicProfile: any
-  ): Promise<{
-    extractedGoals: any[];
-    userInsights: any;
-    recommendedSchedule: any;
-  }> {
-    try {
-      // First extract goals
-      const extractedGoals = await this.extractGoalsForCreation(
-        conversationText,
-        basicProfile
-      );
-
-      // Then get broader insights for scheduling
-      const userInsights = await this.processDetailedOnboardingInput(
-        conversationText,
-        basicProfile
-      );
-
-      return {
-        extractedGoals,
-        userInsights: userInsights.aiInsights,
-        recommendedSchedule: {
-          energyOptimization: basicProfile.energyPattern,
-          workStylePreference: basicProfile.workStyle,
-          stressManagement: basicProfile.stressResponse,
-        },
-      };
-    } catch (error) {
-      console.error("Error in comprehensive onboarding analysis:", error);
-      return {
-        extractedGoals: [],
-        userInsights: {},
-        recommendedSchedule: {},
-      };
-    }
-  }
   private apiKey: string;
   private baseUrl = "https://api.openai.com/v1";
 
@@ -299,6 +109,345 @@ Based on this conversation, extract 2-4 specific goals that this user would want
       console.error("OpenAI request error:", error);
       throw error;
     }
+  }
+
+  /**
+   * Generic method to generate responses from OpenAI
+   * This method is used by TaskGenerationService and other services
+   */
+  async generateResponse(options: {
+    messages: ChatMessage[];
+    functions?: any[];
+    function_call?: any;
+    temperature?: number;
+    max_tokens?: number;
+  }): Promise<any> {
+    try {
+      if (!this.isConfigured()) {
+        console.warn("OpenAI not configured, using mock response");
+        return this.getMockResponse(options);
+      }
+
+      const requestBody = {
+        model: "gpt-3.5-turbo",
+        messages: options.messages,
+        temperature: options.temperature || 0.7,
+        max_tokens: options.max_tokens || 2000,
+      };
+
+      // Add function calling if provided
+      if (options.functions) {
+        requestBody.functions = options.functions;
+      }
+      if (options.function_call) {
+        requestBody.function_call = options.function_call;
+      }
+
+      const response = await fetch(`${this.baseUrl}/chat/completions`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${this.apiKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(requestBody),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(
+          `OpenAI API Error: ${errorData.error?.message || response.statusText}`
+        );
+      }
+
+      const data = await response.json();
+
+      if (!data.choices || data.choices.length === 0) {
+        throw new Error("No response from OpenAI");
+      }
+
+      // Return the first choice, with function_call if it exists
+      const choice = data.choices[0];
+      return {
+        message: choice.message,
+        function_call: choice.message?.function_call,
+        content: choice.message?.content,
+      };
+    } catch (error) {
+      console.error("Error in generateResponse:", error);
+      return this.getMockResponse(options);
+    }
+  }
+
+  /**
+   * Mock response for when OpenAI is not configured or fails
+   */
+  private getMockResponse(options: {
+    functions?: any[];
+    function_call?: any;
+  }): any {
+    console.log("🔧 Using mock response for OpenAI (API key not configured)");
+
+    // If this is a function call for task generation
+    if (options.function_call?.name === "generate_daily_tasks") {
+      return {
+        function_call: {
+          name: "generate_daily_tasks",
+          arguments: JSON.stringify({
+            tasks: [
+              {
+                title: "Morning Bible Reading & Prayer",
+                description:
+                  "Start the day with 15 minutes of scripture reading and prayer for spiritual grounding",
+                type: "daily_habit",
+                priority: "high",
+                estimated_duration: 15,
+                suggested_time_slot: "morning",
+                energy_level_required: "medium",
+                difficulty_level: 3,
+                context_requirements:
+                  "Quiet space with Bible or devotional app",
+                success_criteria:
+                  "Complete 15 minutes of reading and prayer time",
+              },
+              {
+                title: "Computer Science Study Session",
+                description:
+                  "Focused study session for coursework - review materials and complete assignments",
+                type: "weekly_task",
+                priority: "high",
+                estimated_duration: 90,
+                suggested_time_slot: "morning",
+                energy_level_required: "high",
+                difficulty_level: 7,
+                context_requirements:
+                  "Focused workspace with computer, textbooks, and notes",
+                success_criteria:
+                  "Complete daily study goals and review assigned materials",
+              },
+              {
+                title: "German Language Practice",
+                description:
+                  "Work on German course lessons and vocabulary practice",
+                type: "daily_habit",
+                priority: "medium",
+                estimated_duration: 20,
+                suggested_time_slot: "afternoon",
+                energy_level_required: "medium",
+                difficulty_level: 5,
+                context_requirements:
+                  "Language learning app or course materials",
+                success_criteria:
+                  "Complete one lesson or 20 minutes of practice",
+              },
+              {
+                title: "Personal Development Reading",
+                description:
+                  "Read from your stack of books - novels or personal development",
+                type: "daily_habit",
+                priority: "medium",
+                estimated_duration: 30,
+                suggested_time_slot: "evening",
+                energy_level_required: "low",
+                difficulty_level: 3,
+                context_requirements: "Comfortable reading space",
+                success_criteria:
+                  "Read for 30 minutes without phone distractions",
+              },
+              {
+                title: "Meal Prep Planning",
+                description:
+                  "Plan meals for the next few days and prep ingredients",
+                type: "weekly_task",
+                priority: "medium",
+                estimated_duration: 45,
+                suggested_time_slot: "evening",
+                energy_level_required: "medium",
+                difficulty_level: 4,
+                context_requirements: "Kitchen with cooking supplies",
+                success_criteria:
+                  "Plan meals and prep ingredients for next 2-3 days",
+              },
+            ],
+          }),
+        },
+      };
+    }
+
+    // Default text response for other requests
+    return {
+      message: {
+        content:
+          "I'm currently in demo mode. Full AI features will be available once OpenAI API key is configured.",
+      },
+      content: "Demo response - OpenAI not configured",
+    };
+  }
+
+  /**
+   * Extract specific goals from onboarding conversation for automatic goal creation
+   * This is the key method that converts conversation into actual Goal database records
+   */
+  async extractGoalsForCreation(
+    conversationText: string,
+    basicProfile: {
+      energyPattern?: string;
+      workStyle?: string;
+      stressResponse?: string;
+    }
+  ): Promise<
+    {
+      title: string;
+      description: string;
+      category:
+        | "fitness"
+        | "career"
+        | "learning"
+        | "personal"
+        | "finance"
+        | "relationships";
+      priority: "low" | "medium" | "high";
+      targetDate?: string;
+      userContext: string;
+    }[]
+  > {
+    try {
+      const systemPrompt: ChatMessage = {
+        role: "system",
+        content: `You are an expert goal-setting AI that extracts specific, actionable goals from user conversations.
+
+CRITICAL: The user just completed onboarding and expects to see GOALS automatically created from their conversation. You must extract 2-4 concrete, achievable goals.
+
+Your job is to:
+1. Identify specific goals the user mentioned or implied
+2. Convert vague aspirations into concrete, actionable goals
+3. Assign appropriate categories and priorities
+4. Provide context for why each goal matters to the user
+
+Categories available: fitness, career, learning, personal, finance, relationships
+Priorities: low, medium, high
+
+Return ONLY a JSON array in this exact format:
+[
+  {
+    "title": "Specific, actionable goal title",
+    "description": "Clear description of what this goal involves",
+    "category": "appropriate category",
+    "priority": "high/medium/low based on user emphasis",
+    "userContext": "Why this goal matters to the user based on their conversation"
+  }
+]
+
+Extract goals that the user actually mentioned wanting to do, not generic productivity goals.`,
+      };
+
+      const userPrompt: ChatMessage = {
+        role: "user",
+        content: `Extract specific goals from this onboarding conversation:
+
+User Profile:
+- Energy Pattern: ${basicProfile.energyPattern || "Not specified"}
+- Work Style: ${basicProfile.workStyle || "Not specified"}
+- Stress Response: ${basicProfile.stressResponse || "Not specified"}
+
+User's Conversation:
+"${conversationText}"
+
+What specific goals did this user mention wanting to achieve? Focus on concrete things they said they want to do or improve.`,
+      };
+
+      const response = await this.makeRequest([systemPrompt, userPrompt]);
+
+      if (response.choices?.[0]?.message?.content) {
+        try {
+          const extractedGoals = JSON.parse(
+            response.choices[0].message.content
+          );
+          return Array.isArray(extractedGoals) ? extractedGoals : [];
+        } catch (parseError) {
+          console.error("Failed to parse extracted goals:", parseError);
+          return this.getDefaultGoals(conversationText);
+        }
+      }
+
+      return this.getDefaultGoals(conversationText);
+    } catch (error) {
+      console.error("Error extracting goals:", error);
+      return this.getDefaultGoals(conversationText);
+    }
+  }
+
+  /**
+   * Get default goals based on conversation keywords
+   */
+  private getDefaultGoals(conversationText: string): any[] {
+    const text = conversationText.toLowerCase();
+    const goals = [];
+
+    if (
+      text.includes("study") ||
+      text.includes("school") ||
+      text.includes("learn")
+    ) {
+      goals.push({
+        title: "Establish Consistent Study Routine",
+        description:
+          "Create a daily study schedule to stay on top of coursework",
+        category: "learning",
+        priority: "high",
+        userContext:
+          "User mentioned struggling with studies and wanting consistency",
+      });
+    }
+
+    if (
+      text.includes("bible") ||
+      text.includes("pray") ||
+      text.includes("spiritual")
+    ) {
+      goals.push({
+        title: "Daily Morning Spiritual Routine",
+        description: "Establish morning Bible reading and prayer practice",
+        category: "personal",
+        priority: "high",
+        userContext: "User wants to start day with spiritual practices",
+      });
+    }
+
+    if (text.includes("german") || text.includes("language")) {
+      goals.push({
+        title: "Learn German Consistently",
+        description: "Complete German course and build language skills",
+        category: "learning",
+        priority: "medium",
+        userContext: "User bought a German course but hasn't been using it",
+      });
+    }
+
+    if (text.includes("read") && text.includes("book")) {
+      goals.push({
+        title: "Read More Books Regularly",
+        description:
+          "Develop a reading habit for personal growth and enjoyment",
+        category: "personal",
+        priority: "medium",
+        userContext:
+          "User has books they want to read but keeps procrastinating",
+      });
+    }
+
+    // Ensure we have at least one goal
+    if (goals.length === 0) {
+      goals.push({
+        title: "Improve Time Management",
+        description:
+          "Develop better organizational skills and reduce procrastination",
+        category: "personal",
+        priority: "high",
+        userContext: "User wants to be more organized and productive",
+      });
+    }
+
+    return goals;
   }
 
   /**

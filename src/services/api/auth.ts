@@ -3,8 +3,8 @@
  * Handles user authentication, registration, and session management
  */
 
+import { AuthError, Session, User } from "@supabase/supabase-js";
 import { supabase } from "./supabase";
-import { AuthError, AuthResponse, Session, User } from "@supabase/supabase-js";
 
 // Types for authentication
 export interface SignUpData {
@@ -335,6 +335,11 @@ class AuthService {
       workStartTime: string;
       workEndTime: string;
       breakDuration: number;
+      energy_pattern: string;
+      work_style: string;
+      stress_response: string;
+      calendar_connected: boolean;
+      onboardingNotes: any;
     }>
   ): Promise<{ error: any | null }> {
     try {
@@ -361,6 +366,18 @@ class AuthService {
         updateData.work_end_time = updates.workEndTime;
       if (updates.breakDuration !== undefined)
         updateData.break_duration = updates.breakDuration;
+
+      // Onboarding fields
+      if (updates.energy_pattern !== undefined)
+        updateData.energy_pattern = updates.energy_pattern;
+      if (updates.work_style !== undefined)
+        updateData.work_style = updates.work_style;
+      if (updates.stress_response !== undefined)
+        updateData.stress_response = updates.stress_response;
+      if (updates.calendar_connected !== undefined)
+        updateData.calendar_connected = updates.calendar_connected;
+      if (updates.onboardingNotes !== undefined)
+        updateData.onboarding_notes = updates.onboardingNotes;
 
       const { error } = await supabase
         .from("users")

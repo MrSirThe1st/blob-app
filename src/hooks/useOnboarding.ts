@@ -3,7 +3,7 @@
  * Complete onboarding hook that properly handles the 5-step flow with text inputs
  */
 import { onboardingCompletionService } from "@/screens/onboarding/OnboardingCompletionService";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useAuth } from "./useAuth";
 
 interface OnboardingState {
@@ -35,13 +35,21 @@ interface OnboardingData {
 }
 
 export const useOnboarding = () => {
-  const { userProfile, updateProfile } = useAuth();
+  const { userProfile, updateProfile, refreshProfile, isAuthenticated } =
+    useAuth();
   const [state, setState] = useState<OnboardingState>({
     currentStep: userProfile?.onboardingStep || 1,
     isLoading: false,
     hasError: false,
     errorMessage: "",
   });
+
+  // Ensure userProfile is loaded before onboarding starts
+  useEffect(() => {
+    if (isAuthenticated && !userProfile) {
+      refreshProfile();
+    }
+  }, [isAuthenticated, userProfile, refreshProfile]);
 
   // Local state to store onboarding data across steps
   const [onboardingData, setOnboardingData] = useState<OnboardingData>({});
@@ -229,7 +237,14 @@ export const useOnboarding = () => {
       clearError();
 
       try {
-        if (!userProfile?.id) {
+        // Always fetch the latest profile before proceeding
+        await refreshProfile();
+        // Wait a tick to ensure state updates (React state may not update synchronously)
+        await new Promise((resolve) => setTimeout(resolve, 100));
+
+        // Use the latest userProfile after refresh
+        const latestProfile = userProfile;
+        if (!latestProfile?.id) {
           setError("User profile not found. Please try logging in again.");
           return {
             success: false,
@@ -282,7 +297,7 @@ export const useOnboarding = () => {
         // STEP 2: Trigger automatic goal creation and task system initialization
         const completionResult =
           await onboardingCompletionService.completeOnboardingWithGoalGeneration(
-            userProfile.id,
+            latestProfile.id,
             finalOnboardingData
           );
 
