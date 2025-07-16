@@ -59,6 +59,196 @@ export interface ScheduleResponse {
 }
 
 class OpenAIService {
+  /**
+   * Extract specific goals from onboarding conversation for automatic goal creation
+   * This is the key method that converts conversation into actual Goal database records
+   */
+  async extractGoalsForCreation(
+    conversationText: string,
+    basicProfile: {
+      energyPattern?: string;
+      workStyle?: string;
+      stressResponse?: string;
+    }
+  ): Promise<
+    {
+      title: string;
+      description: string;
+      category:
+        | "fitness"
+        | "career"
+        | "learning"
+        | "personal"
+        | "finance"
+        | "relationships";
+      priority: "low" | "medium" | "high";
+      targetDate?: string;
+      userContext: string;
+    }[]
+  > {
+    try {
+      const systemPrompt: ChatMessage = {
+        role: "system",
+        content: `You are an expert goal-setting AI that extracts specific, actionable goals from user conversations.
+
+CRITICAL: The user just completed onboarding and expects to see GOALS automatically created from their conversation. You must extract 2-4 concrete, achievable goals.
+
+Your job is to:
+1. Identify specific goals the user mentioned or implied
+2. Convert vague aspirations into concrete, actionable goals
+3. Assign appropriate categories and priorities
+4. Provide meaningful descriptions that connect to their conversation
+
+GOAL CATEGORIES (choose the best fit):
+- fitness: Physical health, exercise, wellness
+- career: Work advancement, skills, professional development  
+- learning: Education, new skills, knowledge acquisition
+- personal: Habits, routines, self-improvement, productivity
+- finance: Money management, saving, investing
+- relationships: Social connections, family, networking
+
+PRIORITY LEVELS:
+- high: User expressed strong desire/urgency
+- medium: Important but not urgent
+- low: Nice to have, mentioned casually
+
+TARGET DATES (optional):
+- Only include if user mentioned specific timeframes
+- Format: "2024-12-31" (YYYY-MM-DD)
+
+USER CONTEXT:
+- This should capture WHY this goal matters to the user based on their conversation
+- Include specific challenges, motivations, or circumstances they mentioned
+
+RESPONSE FORMAT - Return valid JSON array:
+[
+  {
+    "title": "Specific, action-oriented goal title (max 50 chars)",
+    "description": "Clear description of what success looks like and why it matters to them",
+    "category": "one of the valid categories",
+    "priority": "high/medium/low", 
+    "targetDate": "2024-12-31" or null,
+    "userContext": "Why this goal matters based on their conversation, any challenges they mentioned"
+  }
+]
+
+EXAMPLES OF GOOD GOAL EXTRACTION:
+
+If user said: "I want to get healthier and I've been trying to exercise but I keep skipping it"
+Extract: {
+  "title": "Build Consistent Exercise Habit",
+  "description": "Establish a regular workout routine that sticks, focusing on consistency over intensity",
+  "category": "fitness",
+  "priority": "high",
+  "userContext": "User struggles with exercise consistency and wants to improve health"
+}
+
+If user said: "I'm learning Python but I don't have time and get distracted"
+Extract: {
+  "title": "Master Python Programming",
+  "description": "Develop proficiency in Python through structured, focused learning sessions",
+  "category": "learning", 
+  "priority": "high",
+  "userContext": "User is learning Python but struggles with time management and focus"
+}
+
+IMPORTANT RULES:
+- Extract 2-4 goals maximum (quality over quantity)
+- Make titles specific and actionable
+- Base everything on what the user actually said
+- If conversation is vague, create reasonable personal development goals
+- Every goal must be achievable and meaningful`,
+      };
+
+      const extractionPrompt: ChatMessage = {
+        role: "user",
+        content: `Extract goals from this onboarding conversation:
+
+CONVERSATION TEXT:
+"${conversationText}"
+
+USER PROFILE:
+- Energy Pattern: ${basicProfile.energyPattern || "Not specified"}
+- Work Style: ${basicProfile.workStyle || "Not specified"}  
+- Stress Response: ${basicProfile.stressResponse || "Not specified"}
+
+Based on this conversation, extract 2-4 specific goals that this user would want to work on. Make them actionable and meaningful to their situation.`,
+      };
+
+      const response = await this.makeRequest([systemPrompt, extractionPrompt]);
+
+      if (response.choices?.[0]?.message?.content) {
+        try {
+          const extractedGoals = JSON.parse(
+            response.choices[0].message.content
+          );
+
+          // Validate the response structure
+          if (Array.isArray(extractedGoals) && extractedGoals.length > 0) {
+            return extractedGoals.filter(
+              (goal) =>
+                goal.title &&
+                goal.description &&
+                goal.category &&
+                goal.priority &&
+                goal.userContext
+            );
+          }
+        } catch (parseError) {
+          console.error("Failed to parse extracted goals:", parseError);
+        }
+      }
+
+      // Fallback: return empty array so OnboardingCompletionService can use defaults
+      return [];
+    } catch (error) {
+      console.error("Error extracting goals for creation:", error);
+      return [];
+    }
+  }
+
+  /**
+   * Enhanced method to analyze conversation and create actionable insights
+   */
+  async analyzeOnboardingForGoalCreation(
+    conversationText: string,
+    basicProfile: any
+  ): Promise<{
+    extractedGoals: any[];
+    userInsights: any;
+    recommendedSchedule: any;
+  }> {
+    try {
+      // First extract goals
+      const extractedGoals = await this.extractGoalsForCreation(
+        conversationText,
+        basicProfile
+      );
+
+      // Then get broader insights for scheduling
+      const userInsights = await this.processDetailedOnboardingInput(
+        conversationText,
+        basicProfile
+      );
+
+      return {
+        extractedGoals,
+        userInsights: userInsights.aiInsights,
+        recommendedSchedule: {
+          energyOptimization: basicProfile.energyPattern,
+          workStylePreference: basicProfile.workStyle,
+          stressManagement: basicProfile.stressResponse,
+        },
+      };
+    } catch (error) {
+      console.error("Error in comprehensive onboarding analysis:", error);
+      return {
+        extractedGoals: [],
+        userInsights: {},
+        recommendedSchedule: {},
+      };
+    }
+  }
   private apiKey: string;
   private baseUrl = "https://api.openai.com/v1";
 

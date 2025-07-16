@@ -5,7 +5,6 @@ import {
   Spacing,
   Typography,
 } from "@/constants";
-import { useAuth } from "@/hooks/useAuth";
 import { useState } from "react";
 import {
   ActivityIndicator,
@@ -17,26 +16,84 @@ import {
   View,
 } from "react-native";
 
+import { useOnboarding } from "@/hooks/useOnboarding";
+import { navigateToTabAfterOnboarding } from "@/utils/navigationHelpers";
+import { useNavigation } from "@react-navigation/native";
+
 const OnboardingScreen = () => {
-  const { updateProfile, userProfile } = useAuth();
+  const { completeOnboarding } = useOnboarding();
+  const navigation = useNavigation();
   const [isCompleting, setIsCompleting] = useState(false);
 
-  const completeOnboarding = async () => {
-    setIsCompleting(true);
+  const handleCompleteOnboarding = async () => {
     try {
-      const { error } = await updateProfile({
-        onboardingCompleted: true,
-        onboardingStep: 0, // Reset to 0 since completed
-      });
+      setIsCompleting(true);
 
-      if (error) {
-        Alert.alert("Error", "Failed to complete onboarding");
-        console.error("Onboarding completion error:", error);
+      console.log("🚀 Completing onboarding with automatic goal creation...");
+
+      // For MVP, we'll use a simple conversation text since you don't have the full conversational UI yet
+      // In Phase 2, this will be replaced with actual conversation data
+      const mockConversationText = `I want to be more productive and organized. I struggle with staying focused and managing my time effectively. I'd like to build better habits and achieve my goals more consistently. I'm interested in fitness and learning new skills, but I often get overwhelmed and don't follow through.`;
+
+      // Call the enhanced completion method that will create goals automatically
+      const result = await completeOnboarding(mockConversationText);
+
+      if (result.success) {
+        // Show success message with details about what was created
+        Alert.alert(
+          "🎉 Welcome to Blob!",
+          result.data
+            ? `Your productivity system is ready! We've created ${result.data.goalsCreated} personalized goals and ${result.data.tasksGenerated} tasks for you.`
+            : result.message,
+          [
+            {
+              text: "Let's Go!",
+              onPress: () => {
+                // Navigate based on what was created
+                if (
+                  result.redirectTo === "Today" &&
+                  result.data?.tasksGenerated > 0
+                ) {
+                  // Instead of navigation.reset({...})
+                  navigateToTabAfterOnboarding(navigation, "Today", true);
+                } else {
+                  navigateToTabAfterOnboarding(navigation, "Goals", false);
+                }
+              },
+            },
+          ]
+        );
+      } else {
+        // Fallback to manual goal creation
+        Alert.alert(
+          "Welcome to Blob!",
+          result.message || "Let's start by creating your first goal.",
+          [
+            {
+              text: "Get Started",
+              onPress: () => {
+                // Instead of navigation.reset({...})
+                navigateToTabAfterOnboarding(navigation, "Goals", false);
+              },
+            },
+          ]
+        );
       }
-      // Navigation will be handled automatically by AuthNavigator
-    } catch (err) {
-      Alert.alert("Error", "An unexpected error occurred");
-      console.error("Onboarding error:", err);
+    } catch (error) {
+      console.error("Error completing onboarding:", error);
+      Alert.alert(
+        "Welcome to Blob!",
+        "There was an issue setting up your account, but don't worry - we can get you started manually.",
+        [
+          {
+            text: "Continue",
+            onPress: () => {
+              // Instead of navigation.reset({...})
+              navigateToTabAfterOnboarding(navigation, "Goals", false);
+            },
+          },
+        ]
+      );
     } finally {
       setIsCompleting(false);
     }
@@ -104,19 +161,24 @@ const OnboardingScreen = () => {
               styles.continueButton,
               isCompleting && styles.buttonDisabled,
             ]}
-            onPress={completeOnboarding}
+            onPress={handleCompleteOnboarding}
             disabled={isCompleting}
           >
             {isCompleting ? (
-              <ActivityIndicator color={Colors.text.onPrimary} />
+              <>
+                <ActivityIndicator color={Colors.text.onPrimary} />
+                <Text style={[styles.continueButtonText, { marginLeft: 8 }]}>
+                  Creating Your Goals...
+                </Text>
+              </>
             ) : (
               <Text style={styles.continueButtonText}>Start My Journey</Text>
             )}
           </TouchableOpacity>
 
           <Text style={styles.note}>
-            This is a simplified onboarding for MVP. The full conversational AI
-            onboarding will be implemented in Phase 2.
+            We'll automatically create personalized goals and tasks based on
+            your preferences.
           </Text>
         </View>
       </View>

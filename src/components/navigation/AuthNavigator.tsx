@@ -53,61 +53,66 @@ const AuthStackNavigator = () => (
   </AuthStack.Navigator>
 );
 
-// Main App Tabs
-const MainTabsNavigator = () => (
-  <MainTabs.Navigator
-    screenOptions={{
-      headerShown: false,
-      tabBarActiveTintColor: Colors.primary.main,
-      tabBarInactiveTintColor: Colors.text.muted,
-      tabBarStyle: {
-        backgroundColor: Colors.background.card,
-        borderTopColor: Colors.border.subtle,
-      },
-    }}
-  >
-    <MainTabs.Screen
-      name="Home"
-      component={HomeScreen}
-      options={{
-        tabBarIcon: ({ color }) => <Text style={{ color }}>🏠</Text>,
-        title: "Home",
+// Main App Tabs - UPDATED to support initial tab selection
+const MainTabsNavigator = ({ route }: any) => {
+  // Extract initial tab from navigation params
+  const initialTab = route?.params?.initialTab || "Home";
+  return (
+    <MainTabs.Navigator
+      initialRouteName={initialTab}
+      screenOptions={{
+        headerShown: false,
+        tabBarActiveTintColor: Colors.primary.main,
+        tabBarInactiveTintColor: Colors.text.muted,
+        tabBarStyle: {
+          backgroundColor: Colors.background.card,
+          borderTopColor: Colors.border.subtle,
+        },
       }}
-    />
-    <MainTabs.Screen
-      name="Today"
-      component={TodayScreen}
-      options={{
-        tabBarIcon: ({ color }) => <Text style={{ color }}>📅</Text>,
-        title: "Today",
-      }}
-    />
-    <MainTabs.Screen
-      name="Goals"
-      component={GoalsScreen}
-      options={{
-        tabBarIcon: ({ color }) => <Text style={{ color }}>🎯</Text>,
-        title: "Goals",
-      }}
-    />
-    <MainTabs.Screen
-      name="Buddy"
-      component={BuddyScreen}
-      options={{
-        tabBarIcon: ({ color }) => <Text style={{ color }}>🤝</Text>,
-        title: "Buddy",
-      }}
-    />
-    <MainTabs.Screen
-      name="Insights"
-      component={InsightsScreen}
-      options={{
-        tabBarIcon: ({ color }) => <Text style={{ color }}>📊</Text>,
-        title: "Insights",
-      }}
-    />
-  </MainTabs.Navigator>
-);
+    >
+      <MainTabs.Screen
+        name="Home"
+        component={HomeScreen}
+        options={{
+          tabBarIcon: ({ color }) => <Text style={{ color }}>🏠</Text>,
+          title: "Home",
+        }}
+      />
+      <MainTabs.Screen
+        name="Today"
+        component={TodayScreen}
+        options={{
+          tabBarIcon: ({ color }) => <Text style={{ color }}>📅</Text>,
+          title: "Today",
+        }}
+      />
+      <MainTabs.Screen
+        name="Goals"
+        component={GoalsScreen}
+        options={{
+          tabBarIcon: ({ color }) => <Text style={{ color }}>🎯</Text>,
+          title: "Goals",
+        }}
+      />
+      <MainTabs.Screen
+        name="Buddy"
+        component={BuddyScreen}
+        options={{
+          tabBarIcon: ({ color }) => <Text style={{ color }}>🤝</Text>,
+          title: "Buddy",
+        }}
+      />
+      <MainTabs.Screen
+        name="Insights"
+        component={InsightsScreen}
+        options={{
+          tabBarIcon: ({ color }) => <Text style={{ color }}>📊</Text>,
+          title: "Insights",
+        }}
+      />
+    </MainTabs.Navigator>
+  );
+};
 
 // Main Auth Navigator Component
 const AuthNavigator = () => {

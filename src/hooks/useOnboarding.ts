@@ -2,10 +2,9 @@
 /**
  * Complete onboarding hook that properly handles the 5-step flow with text inputs
  */
-import { useState, useCallback } from "react";
-import { Alert } from "react-native";
+import { onboardingCompletionService } from "@/screens/onboarding/OnboardingCompletionService";
+import { useCallback, useState } from "react";
 import { useAuth } from "./useAuth";
-import { openAIService } from "@/services/api/openai";
 
 interface OnboardingState {
   currentStep: number;
@@ -214,36 +213,80 @@ export const useOnboarding = () => {
   );
 
   /**
-   * Complete the onboarding process (called only from step 5)
+   * Complete the onboarding process with automatic goal generation
+   * This is the key method that bridges onboarding to the goal/task system
    */
   const completeOnboarding = useCallback(
-    async (conversationText: string): Promise<boolean> => {
+    async (
+      conversationText: string
+    ): Promise<{
+      success: boolean;
+      redirectTo: string;
+      message: string;
+      data?: any;
+    }> => {
       setLoading(true);
       clearError();
 
       try {
-        // Final data includes conversation
-        const finalData = { ...onboardingData, conversationText };
+        if (!userProfile?.id) {
+          setError("User profile not found. Please try logging in again.");
+          return {
+            success: false,
+            redirectTo: "Auth",
+            message: "Authentication error",
+          };
+        }
 
-        // Save final onboarding data
+        // Prepare final onboarding data
+        const finalOnboardingData = {
+          ...onboardingData,
+          conversationText: conversationText.trim(),
+        };
+
+        console.log("🚀 Starting automatic goal creation from onboarding...");
+
+        // STEP 1: Save basic onboarding completion to user profile
         const profileUpdates = {
-          onboardingCompleted: true, // Only set true here
+          onboardingCompleted: true,
           onboardingStep: 0, // Reset since completed
+
+          // Save the structured onboarding responses
+          energy_pattern: finalOnboardingData.energyPattern,
+          work_style: finalOnboardingData.workStyle,
+          stress_response: finalOnboardingData.stressResponse,
+          calendar_connected: finalOnboardingData.calendarConnected || false,
+
+          // Save the onboarding notes for future reference
           onboardingNotes: {
-            energyPatternNote: finalData.energyPatternNote,
-            workStyleNote: finalData.workStyleNote,
-            stressResponseNote: finalData.stressResponseNote,
-            conversationText: finalData.conversationText,
+            energyPatternNote: finalOnboardingData.energyPatternNote,
+            workStyleNote: finalOnboardingData.workStyleNote,
+            stressResponseNote: finalOnboardingData.stressResponseNote,
+            conversationText: finalOnboardingData.conversationText,
+            completedAt: new Date().toISOString(),
           },
         };
 
-        const { error } = await updateProfile(profileUpdates);
+        const { error: profileError } = await updateProfile(profileUpdates);
 
-        if (error) {
-          setError("Failed to complete onboarding. Please try again.");
-          return false;
+        if (profileError) {
+          console.error("Error updating profile:", profileError);
+          setError("Failed to save onboarding data. Please try again.");
+          return {
+            success: false,
+            redirectTo: "Onboarding",
+            message: "Profile update failed",
+          };
         }
 
+        // STEP 2: Trigger automatic goal creation and task system initialization
+        const completionResult =
+          await onboardingCompletionService.completeOnboardingWithGoalGeneration(
+            userProfile.id,
+            finalOnboardingData
+          );
+
+        // Update local state
         setState((prev) => ({
           ...prev,
           currentStep: 0,
@@ -251,14 +294,37 @@ export const useOnboarding = () => {
           hasError: false,
         }));
 
-        return true;
+        // Clear onboarding data since we're done
+        setOnboardingData({});
+
+        console.log("✅ Onboarding completion result:", completionResult);
+
+        return {
+          success: completionResult.success,
+          redirectTo: completionResult.redirectTo,
+          message: completionResult.message,
+          data: completionResult.data,
+        };
       } catch (error) {
         console.error("Error completing onboarding:", error);
         setError("Failed to complete onboarding. Please try again.");
-        return false;
+
+        // Fallback: basic completion without automatic goals
+        return {
+          success: true,
+          redirectTo: "Goals",
+          message: "Welcome to Blob! Let's start by creating your first goal.",
+        };
       }
     },
-    [onboardingData, updateProfile, setLoading, setError, clearError]
+    [
+      userProfile?.id,
+      onboardingData,
+      updateProfile,
+      setLoading,
+      setError,
+      clearError,
+    ]
   );
 
   /**
