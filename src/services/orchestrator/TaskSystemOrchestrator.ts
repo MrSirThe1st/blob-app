@@ -117,27 +117,15 @@ export class TaskSystemOrchestrator {
     for (const goal of goals) {
       if (goal.ai_breakdown) {
         try {
-          // Extract tasks from AI breakdown
+          // Generate tasks WITH the proper goal ID
           const { weeklyTasks, dailyHabits, milestones } = goal.ai_breakdown;
-
-          // Generate actionable daily tasks
           const tasks = await taskGenerationService.generateDailyTasks(
             userId,
             { weeklyTasks, dailyHabits, milestones },
-            goal.user_preferences || {}
+            goal.user_preferences || {},
+            goal.id // THIS IS CRUCIAL - pass the actual goal ID
           );
-
           allGeneratedTasks.push(...tasks);
-
-          // Create weekly recurring tasks for habits
-          if (dailyHabits) {
-            await this.createRecurringHabits(userId, dailyHabits, goal.id);
-          }
-
-          // Set up milestone tracking
-          if (milestones) {
-            await this.setupMilestoneTracking(userId, milestones, goal.id);
-          }
         } catch (error) {
           console.error(`Error generating tasks for goal ${goal.id}:`, error);
         }

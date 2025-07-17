@@ -26,7 +26,8 @@ export class TaskGenerationService {
   async generateDailyTasks(
     userId: string,
     goalBreakdown: GoalBreakdown,
-    userPreferences: UserPreferences = {}
+    userPreferences: UserPreferences = {},
+    relatedGoalId?: string // Add this parameter
   ): Promise<Task[]> {
     try {
       const { weeklyTasks, dailyHabits, milestones } = goalBreakdown;
@@ -76,7 +77,6 @@ export class TaskGenerationService {
                       },
                       estimated_duration: { type: "number" },
                       suggested_time_slot: { type: "string" },
-                      related_goal_id: { type: "string" },
                       energy_level_required: { type: "string" },
                       difficulty_level: { type: "number" },
                       context_requirements: { type: "string" },
@@ -97,10 +97,11 @@ export class TaskGenerationService {
 
       const generatedTasks = JSON.parse(response.function_call.arguments);
 
-      // Save tasks to database
+      // Save tasks to database with proper goal relationship
       const savedTasks = await this.saveTasksToDatabase(
         userId,
-        generatedTasks.tasks
+        generatedTasks.tasks,
+        relatedGoalId // Pass the actual goal ID
       );
 
       return savedTasks;
@@ -144,23 +145,26 @@ export class TaskGenerationService {
 
   private async saveTasksToDatabase(
     userId: string,
-    tasks: any[]
+    tasks: any[],
+    relatedGoalId?: string // Add this parameter
   ): Promise<Task[]> {
     const tasksToInsert = tasks.map((task) => ({
-      // Let the database auto-generate UUID
       user_id: userId,
-      title: task.title,
-      description: task.description,
-      type: task.type,
-      priority: task.priority,
+      title: task.title || "Untitled Task",
+      description: task.description || "",
+      type: this.validateTaskType(task.type),
+      priority: this.validatePriority(task.priority),
       status: TaskStatus.PENDING,
       estimated_duration: this.ensureInteger(task.estimated_duration),
-      suggested_time_slot: task.suggested_time_slot,
-      related_goal_id: task.related_goal_id,
-      energy_level_required: task.energy_level_required,
-      difficulty_level: this.ensureInteger(task.difficulty_level),
-      context_requirements: task.context_requirements,
-      success_criteria: task.success_criteria,
+      suggested_time_slot: task.suggested_time_slot || "morning",
+      // FIX: Use the actual goal ID or set to null
+      related_goal_id: relatedGoalId || null, // Use passed goal ID or null
+      energy_level_required: this.validateEnergyLevel(
+        task.energy_level_required
+      ),
+      difficulty_level: this.ensureInteger(task.difficulty_level, 1, 10),
+      context_requirements: task.context_requirements || "",
+      success_criteria: task.success_criteria || "Complete the task",
       scheduled_date: new Date().toISOString().split("T")[0],
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
@@ -173,21 +177,40 @@ export class TaskGenerationService {
 
     if (error) {
       console.error("Error inserting tasks:", error);
+      console.error("Task data that failed:", tasksToInsert);
       throw error;
     }
+
+    console.log(`✅ Successfully created ${data?.length || 0} tasks`);
     return data || [];
   }
 
-  // Helper to ensure integer values for estimated_duration and difficulty_level
-  private ensureInteger(value: any): number {
+  // Validation helpers
+  private validateTaskType(type: any): import("@/types/tasks").TaskTypeType {
+    return Object.values(TaskType).includes(type) ? type : TaskType.ONE_TIME;
+  }
+  private validatePriority(
+    priority: any
+  ): import("@/types/tasks").TaskPriorityType {
+    return Object.values(TaskPriority).includes(priority)
+      ? priority
+      : TaskPriority.MEDIUM;
+  }
+  private validateEnergyLevel(level: any): string {
+    const allowed = ["low", "medium", "high"];
+    return allowed.includes(level) ? level : "medium";
+  }
+  private ensureInteger(value: any, min = 1, max = 10): number {
+    let num = 1;
     if (typeof value === "number") {
-      return Math.round(value);
-    }
-    if (typeof value === "string") {
+      num = Math.round(value);
+    } else if (typeof value === "string") {
       const parsed = parseFloat(value);
-      return isNaN(parsed) ? 30 : Math.round(parsed);
+      num = isNaN(parsed) ? min : Math.round(parsed);
     }
-    return 30; // Default fallback
+    if (num < min) num = min;
+    if (num > max) num = max;
+    return num;
   }
 
   // ...generateTaskId removed...
