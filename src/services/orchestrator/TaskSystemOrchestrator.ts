@@ -1,10 +1,9 @@
 // src/services/orchestrator/TaskSystemOrchestrator.ts
 import { supabase } from "@/services/api/supabase";
-import { openAIService } from "@/services/api/openai";
-import { taskManagementService } from "@/services/tasks/TaskManagementService";
-import { taskGenerationService } from "@/services/tasks/TaskGenerationService";
 import { aiSchedulingEngine } from "@/services/scheduling/AISchedulingEngine";
-import { TaskType, TaskPriority } from "@/types/tasks";
+import { taskGenerationService } from "@/services/tasks/TaskGenerationService";
+import { taskManagementService } from "@/services/tasks/TaskManagementService";
+import { TaskPriority, TaskType } from "@/types/tasks";
 
 interface InitializationResult {
   success: boolean;
@@ -157,16 +156,16 @@ export class TaskSystemOrchestrator {
     if (!dailyHabits || dailyHabits.length === 0) return;
 
     const habitTasks: RecurringTask[] = dailyHabits.map((habit) => ({
-      id: this.generateTaskId(),
+      // Let the database auto-generate UUID for id
       user_id: userId,
       title: habit.title || habit,
       description: habit.description || `Daily habit: ${habit.title || habit}`,
       type: TaskType.DAILY_HABIT,
       priority: habit.priority || TaskPriority.MEDIUM,
       status: "pending",
-      estimated_duration: habit.duration || 30,
+      estimated_duration: this.ensureInteger(habit.duration),
       energy_level_required: habit.energy_level || "medium",
-      difficulty_level: habit.difficulty || 2,
+      difficulty_level: this.ensureDifficultyLevel(habit.difficulty),
       related_goal_id: goalId,
       is_recurring: true,
       recurrence_pattern: "daily",
@@ -179,7 +178,7 @@ export class TaskSystemOrchestrator {
     for (const habit of habitTasks) {
       try {
         const { error } = await supabase.from("tasks").insert({
-          id: habit.id,
+          // id omitted, let DB generate
           user_id: habit.user_id,
           title: habit.title,
           description: habit.description,
@@ -202,6 +201,32 @@ export class TaskSystemOrchestrator {
         console.error("Error inserting habit task:", error);
       }
     }
+  }
+
+  // Ensure integer and valid range for difficulty_level (1-5)
+  private ensureDifficultyLevel(value: any): number {
+    let num = 2;
+    if (typeof value === "number") {
+      num = Math.round(value);
+    } else if (typeof value === "string") {
+      const parsed = parseFloat(value);
+      num = isNaN(parsed) ? 2 : Math.round(parsed);
+    }
+    if (num < 1) num = 1;
+    if (num > 5) num = 5;
+    return num;
+  }
+
+  // Helper for estimated_duration
+  private ensureInteger(value: any): number {
+    if (typeof value === "number") {
+      return Math.round(value);
+    }
+    if (typeof value === "string") {
+      const parsed = parseFloat(value);
+      return isNaN(parsed) ? 30 : Math.round(parsed);
+    }
+    return 30;
   }
 
   // Set up milestone tracking with deadlines
@@ -448,10 +473,6 @@ export class TaskSystemOrchestrator {
     }
 
     return days;
-  }
-
-  private generateTaskId(): string {
-    return "task_" + Date.now() + "_" + Math.random().toString(36).substr(2, 9);
   }
 
   private generateMilestoneId(): string {

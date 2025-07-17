@@ -1,7 +1,7 @@
 // src/services/tasks/TaskGenerationService.ts
-import { supabase } from "@/services/api/supabase";
 import { openAIService } from "@/services/api/openai";
-import { Task, TaskStatus, TaskType, TaskPriority } from "@/types/tasks";
+import { supabase } from "@/services/api/supabase";
+import { Task, TaskPriority, TaskStatus, TaskType } from "@/types/tasks";
 
 interface GoalBreakdown {
   weeklyTasks?: any[];
@@ -147,18 +147,18 @@ export class TaskGenerationService {
     tasks: any[]
   ): Promise<Task[]> {
     const tasksToInsert = tasks.map((task) => ({
-      id: this.generateTaskId(),
+      // Let the database auto-generate UUID
       user_id: userId,
       title: task.title,
       description: task.description,
       type: task.type,
       priority: task.priority,
       status: TaskStatus.PENDING,
-      estimated_duration: task.estimated_duration,
+      estimated_duration: this.ensureInteger(task.estimated_duration),
       suggested_time_slot: task.suggested_time_slot,
       related_goal_id: task.related_goal_id,
       energy_level_required: task.energy_level_required,
-      difficulty_level: task.difficulty_level,
+      difficulty_level: this.ensureInteger(task.difficulty_level),
       context_requirements: task.context_requirements,
       success_criteria: task.success_criteria,
       scheduled_date: new Date().toISOString().split("T")[0],
@@ -171,13 +171,26 @@ export class TaskGenerationService {
       .insert(tasksToInsert)
       .select("*");
 
-    if (error) throw error;
+    if (error) {
+      console.error("Error inserting tasks:", error);
+      throw error;
+    }
     return data || [];
   }
 
-  private generateTaskId(): string {
-    return "task_" + Date.now() + "_" + Math.random().toString(36).substr(2, 9);
+  // Helper to ensure integer values for estimated_duration and difficulty_level
+  private ensureInteger(value: any): number {
+    if (typeof value === "number") {
+      return Math.round(value);
+    }
+    if (typeof value === "string") {
+      const parsed = parseFloat(value);
+      return isNaN(parsed) ? 30 : Math.round(parsed);
+    }
+    return 30; // Default fallback
   }
+
+  // ...generateTaskId removed...
 
   private async getUserSchedulePreferences(
     userId: string
