@@ -1,8 +1,10 @@
 // src/services/api/openai.ts
 /**
- * OpenAI API service for AI conversations and schedule generation
- * Handles natural language processing and schedule optimization
+ * Enhanced OpenAI API service with real API integration
+ * Eliminates mock responses and implements proper AI-driven functionality
  */
+
+import { Colors, Typography, Spacing, BorderRadius } from "@/constants";
 
 // Types for OpenAI integration
 export interface ChatMessage {
@@ -19,6 +21,18 @@ export interface OnboardingConversationData {
     motivationType: string;
     availabilityPattern: string;
     personalityTraits: string[];
+    workPreferences?: {
+      preferredHours?: string;
+      energyPeaks?: string[];
+      focusStyle?: string;
+    };
+    stressFactors?: string[];
+    timeConstraints?: string[];
+  };
+  summarized?: {
+    keyPoints: string[];
+    userContext: string;
+    personalizedRecommendations: string[];
   };
 }
 
@@ -32,6 +46,7 @@ export interface ScheduleRequest {
   };
   goals: string[];
   availableHours: number;
+  userContext?: string; // From onboarding summary
   existingCommitments?: {
     title: string;
     startTime: string;
@@ -49,6 +64,8 @@ export interface GeneratedTask {
   startTime: string;
   endTime: string;
   isFlexible: boolean;
+  reasoning?: string; // Why this task was suggested
+  adaptations?: string[]; // How it adapts to user's needs
 }
 
 export interface ScheduleResponse {
@@ -56,92 +73,100 @@ export interface ScheduleResponse {
   totalScheduledHours: number;
   suggestions: string[];
   optimizationNotes: string;
+  personalizedInsights?: string[];
+}
+
+export interface GoalExtractionRequest {
+  conversationText: string;
+  basicProfile: {
+    chronotype?: string;
+    workStyle?: string;
+    stressResponse?: string;
+  };
+  additionalContext?: {
+    energyPatternNote?: string;
+    workStyleNote?: string;
+    stressResponseNote?: string;
+  };
+}
+
+export interface ExtractedGoal {
+  title: string;
+  description: string;
+  category:
+    | "fitness"
+    | "career"
+    | "learning"
+    | "personal"
+    | "finance"
+    | "relationships";
+  priority: "low" | "medium" | "high";
+  targetDate?: string;
+  userContext: string;
+  breakdown?: {
+    milestones: string[];
+    suggestedTasks: string[];
+    timeframe: string;
+  };
 }
 
 class OpenAIService {
   private apiKey: string;
   private baseUrl = "https://api.openai.com/v1";
+  private defaultModel = "gpt-4"; // Use GPT-4 for better quality
+  private isConfigured: boolean;
 
   constructor() {
-    // In production, store this securely (environment variables, secure storage)
-    // For MVP, you can hardcode temporarily but NEVER commit the actual key
+    // Get API key from environment
     this.apiKey = process.env.EXPO_PUBLIC_OPENAI_API_KEY || "";
+    this.isConfigured = !!this.apiKey;
 
-    if (!this.apiKey) {
+    if (!this.isConfigured) {
       console.warn(
-        "⚠️ OpenAI API key not found. Add EXPO_PUBLIC_OPENAI_API_KEY to your environment variables"
+        "⚠️ OpenAI API key not found. Set EXPO_PUBLIC_OPENAI_API_KEY environment variable."
       );
+    } else {
+      console.log("✅ OpenAI service configured successfully");
     }
+  }
+
+  /**
+   * Check if OpenAI is properly configured
+   */
+  public isServiceAvailable(): boolean {
+    return this.isConfigured;
   }
 
   /**
    * Make a request to OpenAI Chat Completions API
    */
-  public async makeRequest(
+  private async makeRequest(
     messages: ChatMessage[],
-    functions?: any[]
+    options: {
+      functions?: any[];
+      function_call?: any;
+      temperature?: number;
+      max_tokens?: number;
+      model?: string;
+    } = {}
   ): Promise<any> {
-    try {
-      const response = await fetch(`${this.baseUrl}/chat/completions`, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${this.apiKey}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          model: "gpt-3.5-turbo",
-          messages,
-          temperature: 0.7,
-          max_tokens: 1500,
-          ...(functions && { functions, function_call: "auto" }),
-        }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(
-          `OpenAI API Error: ${errorData.error?.message || response.statusText}`
-        );
-      }
-
-      return await response.json();
-    } catch (error) {
-      console.error("OpenAI request error:", error);
-      throw error;
+    if (!this.isConfigured) {
+      throw new Error(
+        "OpenAI API is not configured. Please check your API key."
+      );
     }
-  }
 
-  /**
-   * Generic method to generate responses from OpenAI
-   * This method is used by TaskGenerationService and other services
-   */
-  async generateResponse(options: {
-    messages: ChatMessage[];
-    functions?: any[];
-    function_call?: any;
-    temperature?: number;
-    max_tokens?: number;
-  }): Promise<any> {
     try {
-      if (!this.isConfigured()) {
-        console.warn("OpenAI not configured, using mock response");
-        return this.getMockResponse(options);
-      }
-
       const requestBody = {
-        model: "gpt-3.5-turbo",
-        messages: options.messages,
-        temperature: options.temperature || 0.7,
+        model: options.model || this.defaultModel,
+        messages,
+        temperature: options.temperature ?? 0.7,
         max_tokens: options.max_tokens || 2000,
+        ...(options.functions && { functions: options.functions }),
+        ...(options.function_call && { function_call: options.function_call }),
       };
 
-      // Add function calling if provided
-      if (options.functions) {
-        requestBody.functions = options.functions;
-      }
-      if (options.function_call) {
-        requestBody.function_call = options.function_call;
-      }
+      console.log("🤖 Making OpenAI API request...");
 
       const response = await fetch(`${this.baseUrl}/chat/completions`, {
         method: "POST",
@@ -153,367 +178,236 @@ class OpenAIService {
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(
-          `OpenAI API Error: ${errorData.error?.message || response.statusText}`
-        );
+        const errorData = await response.json().catch(() => ({}));
+        const errorMessage =
+          errorData.error?.message ||
+          `HTTP ${response.status}: ${response.statusText}`;
+        throw new Error(`OpenAI API Error: ${errorMessage}`);
       }
 
       const data = await response.json();
 
       if (!data.choices || data.choices.length === 0) {
-        throw new Error("No response from OpenAI");
+        throw new Error("No response choices returned from OpenAI");
       }
 
-      // Return the first choice, with function_call if it exists
+      console.log("✅ OpenAI API request successful");
+
       const choice = data.choices[0];
       return {
         message: choice.message,
         function_call: choice.message?.function_call,
         content: choice.message?.content,
+        usage: data.usage,
       };
     } catch (error) {
-      console.error("Error in generateResponse:", error);
-      return this.getMockResponse(options);
+      console.error("❌ OpenAI API request failed:", error);
+      throw error;
     }
   }
 
   /**
-   * Mock response for when OpenAI is not configured or fails
+   * Extract goals from onboarding conversation using real AI
    */
-  private getMockResponse(options: {
-    functions?: any[];
-    function_call?: any;
-  }): any {
-    console.log("🔧 Using mock response for OpenAI (API key not configured)");
-
-    // If this is a function call for task generation
-    if (options.function_call?.name === "generate_daily_tasks") {
-      return {
-        function_call: {
-          name: "generate_daily_tasks",
-          arguments: JSON.stringify({
-            tasks: [
-              {
-                title: "Morning Bible Reading & Prayer",
-                description:
-                  "Start the day with 15 minutes of scripture reading and prayer for spiritual grounding",
-                type: "daily_habit",
-                priority: "high",
-                estimated_duration: 15,
-                suggested_time_slot: "morning",
-                energy_level_required: "medium",
-                difficulty_level: 3,
-                context_requirements:
-                  "Quiet space with Bible or devotional app",
-                success_criteria:
-                  "Complete 15 minutes of reading and prayer time",
-              },
-              {
-                title: "Computer Science Study Session",
-                description:
-                  "Focused study session for coursework - review materials and complete assignments",
-                type: "weekly_task",
-                priority: "high",
-                estimated_duration: 90,
-                suggested_time_slot: "morning",
-                energy_level_required: "high",
-                difficulty_level: 7,
-                context_requirements:
-                  "Focused workspace with computer, textbooks, and notes",
-                success_criteria:
-                  "Complete daily study goals and review assigned materials",
-              },
-              {
-                title: "German Language Practice",
-                description:
-                  "Work on German course lessons and vocabulary practice",
-                type: "daily_habit",
-                priority: "medium",
-                estimated_duration: 20,
-                suggested_time_slot: "afternoon",
-                energy_level_required: "medium",
-                difficulty_level: 5,
-                context_requirements:
-                  "Language learning app or course materials",
-                success_criteria:
-                  "Complete one lesson or 20 minutes of practice",
-              },
-              {
-                title: "Personal Development Reading",
-                description:
-                  "Read from your stack of books - novels or personal development",
-                type: "daily_habit",
-                priority: "medium",
-                estimated_duration: 30,
-                suggested_time_slot: "evening",
-                energy_level_required: "low",
-                difficulty_level: 3,
-                context_requirements: "Comfortable reading space",
-                success_criteria:
-                  "Read for 30 minutes without phone distractions",
-              },
-              {
-                title: "Meal Prep Planning",
-                description:
-                  "Plan meals for the next few days and prep ingredients",
-                type: "weekly_task",
-                priority: "medium",
-                estimated_duration: 45,
-                suggested_time_slot: "evening",
-                energy_level_required: "medium",
-                difficulty_level: 4,
-                context_requirements: "Kitchen with cooking supplies",
-                success_criteria:
-                  "Plan meals and prep ingredients for next 2-3 days",
-              },
-            ],
-          }),
-        },
-      };
+  async extractGoalsFromConversation(
+    request: GoalExtractionRequest
+  ): Promise<ExtractedGoal[]> {
+    if (!this.isConfigured) {
+      throw new Error(
+        "AI service is not available. Please configure your API key to extract personalized goals."
+      );
     }
 
-    // Default text response for other requests
-    return {
-      message: {
-        content:
-          "I'm currently in demo mode. Full AI features will be available once OpenAI API key is configured.",
-      },
-      content: "Demo response - OpenAI not configured",
-    };
-  }
+    const systemPrompt: ChatMessage = {
+      role: "system",
+      content: `You are an expert AI goal extraction assistant. Analyze the user's onboarding conversation to identify their specific, actionable goals.
 
-  /**
-   * Extract specific goals from onboarding conversation for automatic goal creation
-   * This is the key method that converts conversation into actual Goal database records
-   */
-  async extractGoalsForCreation(
-    conversationText: string,
-    basicProfile: {
-      energyPattern?: string;
-      workStyle?: string;
-      stressResponse?: string;
-    }
-  ): Promise<
-    {
-      title: string;
-      description: string;
-      category:
-        | "fitness"
-        | "career"
-        | "learning"
-        | "personal"
-        | "finance"
-        | "relationships";
-      priority: "low" | "medium" | "high";
-      targetDate?: string;
-      userContext: string;
-    }[]
-  > {
-    try {
-      const systemPrompt: ChatMessage = {
-        role: "system",
-        content: `You are an expert goal-setting AI that extracts specific, actionable goals from user conversations.
+EXTRACTION GUIDELINES:
+1. Focus on EXPLICIT goals mentioned by the user
+2. Infer implicit goals from mentioned challenges and desires
+3. Make goals SPECIFIC and MEASURABLE when possible
+4. Consider the user's context, constraints, and preferences
+5. Prioritize based on urgency and user emphasis
 
-CRITICAL: The user just completed onboarding and expects to see GOALS automatically created from their conversation. You must extract 2-4 concrete, achievable goals.
+USER PROFILE CONTEXT:
+- Chronotype: ${request.basicProfile.chronotype || "Not specified"}
+- Work Style: ${request.basicProfile.workStyle || "Not specified"}  
+- Stress Response: ${request.basicProfile.stressResponse || "Not specified"}
 
-Your job is to:
-1. Identify specific goals the user mentioned or implied
-2. Convert vague aspirations into concrete, actionable goals
-3. Assign appropriate categories and priorities
-4. Provide context for why each goal matters to the user
+ADDITIONAL CONTEXT:
+${request.additionalContext?.energyPatternNote ? `Energy Pattern: ${request.additionalContext.energyPatternNote}` : ""}
+${request.additionalContext?.workStyleNote ? `Work Style Details: ${request.additionalContext.workStyleNote}` : ""}
+${request.additionalContext?.stressResponseNote ? `Stress Management: ${request.additionalContext.stressResponseNote}` : ""}
 
-Categories available: fitness, career, learning, personal, finance, relationships
-Priorities: low, medium, high
-
-Return ONLY a JSON array in this exact format:
+Return a JSON array of goals with this exact structure:
 [
   {
     "title": "Specific, actionable goal title",
-    "description": "Clear description of what this goal involves",
-    "category": "appropriate category",
-    "priority": "high/medium/low based on user emphasis",
-    "userContext": "Why this goal matters to the user based on their conversation"
+    "description": "Detailed description explaining what success looks like",
+    "category": "fitness|career|learning|personal|finance|relationships",
+    "priority": "low|medium|high",
+    "targetDate": "YYYY-MM-DD or relative like '3 months'",
+    "userContext": "Why this matters to the user based on their conversation",
+    "breakdown": {
+      "milestones": ["milestone 1", "milestone 2"],
+      "suggestedTasks": ["task 1", "task 2", "task 3"],
+      "timeframe": "How long this should realistically take"
+    }
   }
 ]
 
-Extract goals that the user actually mentioned wanting to do, not generic productivity goals.`,
-      };
+Extract 2-5 goals maximum. Focus on quality and relevance over quantity.`,
+    };
 
-      const userPrompt: ChatMessage = {
-        role: "user",
-        content: `Extract specific goals from this onboarding conversation:
+    const userPrompt: ChatMessage = {
+      role: "user",
+      content: `Please analyze this onboarding conversation and extract the user's goals:
 
-User Profile:
-- Energy Pattern: ${basicProfile.energyPattern || "Not specified"}
+"${request.conversationText}"
+
+Based on this conversation and the user's profile, what are their specific, actionable goals? Consider both explicit goals they mentioned and implicit goals based on their challenges and desires.`,
+    };
+
+    try {
+      const response = await this.makeRequest([systemPrompt, userPrompt], {
+        temperature: 0.3, // Lower temperature for more consistent extraction
+        max_tokens: 1500,
+      });
+
+      if (response.content) {
+        try {
+          const goals: ExtractedGoal[] = JSON.parse(response.content);
+
+          // Validate the extracted goals
+          const validGoals = goals.filter(
+            (goal) =>
+              goal.title && goal.description && goal.category && goal.priority
+          );
+
+          console.log(
+            `✅ Extracted ${validGoals.length} goals from conversation`
+          );
+          return validGoals;
+        } catch (parseError) {
+          console.error("Failed to parse extracted goals:", parseError);
+          throw new Error("Failed to parse goal extraction response");
+        }
+      }
+
+      throw new Error("No valid goal extraction response from AI");
+    } catch (error) {
+      console.error("Error extracting goals:", error);
+      throw error;
+    }
+  }
+
+  /**
+   * Process onboarding conversation to extract comprehensive insights
+   */
+  async processOnboardingConversation(
+    conversationText: string,
+    basicProfile: {
+      chronotype?: string;
+      workStyle?: string;
+      stressResponse?: string;
+    },
+    additionalContext?: {
+      energyPatternNote?: string;
+      workStyleNote?: string;
+      stressResponseNote?: string;
+    }
+  ): Promise<OnboardingConversationData> {
+    if (!this.isConfigured) {
+      throw new Error(
+        "AI service is not available. Please configure your API key to process onboarding data."
+      );
+    }
+
+    const conversation: ChatMessage[] = [
+      {
+        role: "system",
+        content: `You are an expert AI personality analyzer. Process this onboarding conversation to extract deep insights about the user's productivity patterns, challenges, and preferences.
+
+USER PROFILE CONTEXT:
+- Chronotype: ${basicProfile.chronotype || "Not specified"}
 - Work Style: ${basicProfile.workStyle || "Not specified"}
 - Stress Response: ${basicProfile.stressResponse || "Not specified"}
 
-User's Conversation:
+ADDITIONAL CONTEXT:
+${additionalContext?.energyPatternNote ? `Energy Pattern Details: ${additionalContext.energyPatternNote}` : ""}
+${additionalContext?.workStyleNote ? `Work Style Details: ${additionalContext.workStyleNote}` : ""}
+${additionalContext?.stressResponseNote ? `Stress Management Details: ${additionalContext.stressResponseNote}` : ""}
+
+Analyze the conversation and extract actionable insights. Return a JSON object with this exact structure:
+{
+  "primaryGoals": ["specific goal 1", "specific goal 2"],
+  "challenges": ["specific challenge 1", "specific challenge 2"],
+  "lifestyle": "Comprehensive lifestyle description",
+  "motivationType": "What drives this person",
+  "availabilityPattern": "When they can realistically work",
+  "personalityTraits": ["trait 1", "trait 2"],
+  "workPreferences": {
+    "preferredHours": "When they work best",
+    "energyPeaks": ["morning", "afternoon", "evening"],
+    "focusStyle": "How they prefer to work"
+  },
+  "stressFactors": ["what causes them stress"],
+  "timeConstraints": ["specific time limitations"]
+}`,
+      },
+      {
+        role: "user",
+        content: `Please analyze this detailed onboarding conversation:
+
 "${conversationText}"
 
-What specific goals did this user mention wanting to achieve? Focus on concrete things they said they want to do or improve.`,
-      };
+Extract comprehensive insights about this person's productivity patterns, challenges, goals, and preferences. Focus on actionable information that can be used to create personalized schedules and tasks.`,
+      },
+    ];
 
-      const response = await this.makeRequest([systemPrompt, userPrompt]);
-
-      if (response.choices?.[0]?.message?.content) {
-        try {
-          const extractedGoals = JSON.parse(
-            response.choices[0].message.content
-          );
-          return Array.isArray(extractedGoals) ? extractedGoals : [];
-        } catch (parseError) {
-          console.error("Failed to parse extracted goals:", parseError);
-          return this.getDefaultGoals(conversationText);
-        }
-      }
-
-      return this.getDefaultGoals(conversationText);
-    } catch (error) {
-      console.error("Error extracting goals:", error);
-      return this.getDefaultGoals(conversationText);
-    }
-  }
-
-  /**
-   * Get default goals based on conversation keywords
-   */
-  private getDefaultGoals(conversationText: string): any[] {
-    const text = conversationText.toLowerCase();
-    const goals = [];
-
-    if (
-      text.includes("study") ||
-      text.includes("school") ||
-      text.includes("learn")
-    ) {
-      goals.push({
-        title: "Establish Consistent Study Routine",
-        description:
-          "Create a daily study schedule to stay on top of coursework",
-        category: "learning",
-        priority: "high",
-        userContext:
-          "User mentioned struggling with studies and wanting consistency",
-      });
-    }
-
-    if (
-      text.includes("bible") ||
-      text.includes("pray") ||
-      text.includes("spiritual")
-    ) {
-      goals.push({
-        title: "Daily Morning Spiritual Routine",
-        description: "Establish morning Bible reading and prayer practice",
-        category: "personal",
-        priority: "high",
-        userContext: "User wants to start day with spiritual practices",
-      });
-    }
-
-    if (text.includes("german") || text.includes("language")) {
-      goals.push({
-        title: "Learn German Consistently",
-        description: "Complete German course and build language skills",
-        category: "learning",
-        priority: "medium",
-        userContext: "User bought a German course but hasn't been using it",
-      });
-    }
-
-    if (text.includes("read") && text.includes("book")) {
-      goals.push({
-        title: "Read More Books Regularly",
-        description:
-          "Develop a reading habit for personal growth and enjoyment",
-        category: "personal",
-        priority: "medium",
-        userContext:
-          "User has books they want to read but keeps procrastinating",
-      });
-    }
-
-    // Ensure we have at least one goal
-    if (goals.length === 0) {
-      goals.push({
-        title: "Improve Time Management",
-        description:
-          "Develop better organizational skills and reduce procrastination",
-        category: "personal",
-        priority: "high",
-        userContext: "User wants to be more organized and productive",
-      });
-    }
-
-    return goals;
-  }
-
-  /**
-   * Process onboarding conversation and extract insights (legacy method for compatibility)
-   */
-  async processOnboardingConversation(
-    conversation: ChatMessage[]
-  ): Promise<OnboardingConversationData> {
     try {
-      const systemPrompt: ChatMessage = {
-        role: "system",
-        content: `You are an AI assistant helping analyze a user's onboarding conversation to extract key insights for personalized task scheduling. 
+      const response = await this.makeRequest(conversation, {
+        temperature: 0.4,
+        max_tokens: 1000,
+      });
 
-Analyze the conversation and extract:
-1. Primary goals (what they want to achieve)
-2. Current challenges (what's blocking them)
-3. Lifestyle constraints (work, family, health, etc.)
-4. Motivation type (progress tracking, rewards, accountability, etc.)
-5. Availability patterns (when they prefer to work)
-6. Personality traits that affect productivity
-
-Return your analysis in this exact JSON format:
-{
-  "primaryGoals": ["goal1", "goal2"],
-  "challenges": ["challenge1", "challenge2"],
-  "lifestyle": "brief description of lifestyle constraints",
-  "motivationType": "brief description of what motivates them",
-  "availabilityPattern": "when they prefer to work/are available",
-  "personalityTraits": ["trait1", "trait2"]
-}
-
-Be specific and actionable in your analysis.`,
-      };
-
-      const analysisPrompt: ChatMessage = {
-        role: "user",
-        content: `Please analyze this onboarding conversation and extract insights: ${JSON.stringify(conversation)}`,
-      };
-
-      const response = await this.makeRequest([systemPrompt, analysisPrompt]);
-
-      if (response.choices?.[0]?.message?.content) {
+      if (response.content) {
         try {
-          const aiInsights = JSON.parse(response.choices[0].message.content);
-          return {
+          const aiInsights = JSON.parse(response.content);
+
+          // Create summarized version for storage
+          const summarized = {
+            keyPoints: [
+              `Goals: ${aiInsights.primaryGoals?.join(", ") || "General productivity"}`,
+              `Challenges: ${aiInsights.challenges?.join(", ") || "Time management"}`,
+              `Work Style: ${aiInsights.workPreferences?.focusStyle || basicProfile.workStyle || "Flexible"}`,
+              `Availability: ${aiInsights.availabilityPattern || "Standard hours"}`,
+            ],
+            userContext:
+              aiInsights.lifestyle ||
+              "Focused on improving productivity and achieving goals",
+            personalizedRecommendations: [
+              "Schedule high-priority tasks during energy peaks",
+              "Build in buffer time for stress management",
+              "Align tasks with preferred work style",
+            ],
+          };
+
+          const fullData: OnboardingConversationData = {
             fullTranscript: conversation,
             aiInsights,
+            summarized,
           };
+
+          console.log("✅ Processed onboarding conversation successfully");
+          return fullData;
         } catch (parseError) {
-          console.error("Failed to parse AI insights:", parseError);
-          // Return default structure if parsing fails
-          return {
-            fullTranscript: conversation,
-            aiInsights: {
-              primaryGoals: ["General productivity"],
-              challenges: ["Time management"],
-              lifestyle: "Busy lifestyle",
-              motivationType: "Progress tracking",
-              availabilityPattern: "Flexible hours",
-              personalityTraits: ["Goal-oriented"],
-            },
-          };
+          console.error("Failed to parse onboarding insights:", parseError);
+          throw new Error("Failed to parse onboarding analysis response");
         }
       }
 
-      throw new Error("No valid response from OpenAI");
+      throw new Error("No valid onboarding analysis response from AI");
     } catch (error) {
       console.error("Error processing onboarding conversation:", error);
       throw error;
@@ -521,305 +415,265 @@ Be specific and actionable in your analysis.`,
   }
 
   /**
-   * Generate a daily schedule based on user profile and goals
+   * Generate personalized daily schedule using real AI
    */
   async generateDailySchedule(
     request: ScheduleRequest
   ): Promise<ScheduleResponse> {
-    try {
-      const systemPrompt: ChatMessage = {
-        role: "system",
-        content: `You are an AI scheduling assistant that creates optimized daily schedules based on user preferences and goals.
+    if (!this.isConfigured) {
+      throw new Error(
+        "AI service is not available. Please configure your API key to generate personalized schedules."
+      );
+    }
 
-Create a realistic daily schedule that:
-1. Respects the user's chronotype and work hours
-2. Includes appropriate breaks
-3. Balances different types of tasks
-4. Considers the user's work style
-5. Fits within available time slots
+    const systemPrompt: ChatMessage = {
+      role: "system",
+      content: `You are an expert AI scheduling assistant that creates highly personalized, science-based daily schedules.
 
-Return your response in this exact JSON format:
+CORE PRINCIPLES:
+1. ENERGY OPTIMIZATION: Match task complexity to user's energy patterns
+2. CONTEXT SWITCHING: Minimize transitions between different types of work
+3. REALISTIC TIMING: Include buffer time and breaks
+4. GOAL ALIGNMENT: Prioritize tasks that advance user's specific goals
+5. STRESS MANAGEMENT: Consider user's stress response and build in recovery
+
+PERSONALIZATION FACTORS:
+- Chronotype: ${request.userProfile.chronotype || "flexible"}
+- Work Style: ${request.userProfile.workStyle || "balanced"}
+- Available Hours: ${request.availableHours}
+- Work Window: ${request.userProfile.workStartTime || "9:00"} - ${request.userProfile.workEndTime || "17:00"}
+
+${request.userContext ? `USER CONTEXT: ${request.userContext}` : ""}
+
+Return a JSON object with this exact structure:
 {
   "tasks": [
     {
-      "id": "unique_id",
-      "title": "Task Title",
-      "description": "Brief description",
+      "id": "unique_task_id",
+      "title": "Specific, actionable task title",
+      "description": "Clear description of what to do",
       "estimatedDuration": 60,
       "priority": "high|medium|low",
-      "category": "work|personal|health|learning",
+      "category": "work|personal|health|learning|planning",
       "startTime": "2024-01-15T09:00:00",
       "endTime": "2024-01-15T10:00:00",
-      "isFlexible": true
+      "isFlexible": true,
+      "reasoning": "Why this task is scheduled at this time",
+      "adaptations": ["How this adapts to user's needs"]
     }
   ],
   "totalScheduledHours": 6.5,
-  "suggestions": ["suggestion1", "suggestion2"],
-  "optimizationNotes": "Brief note about the schedule optimization"
+  "suggestions": ["actionable suggestion 1", "actionable suggestion 2"],
+  "optimizationNotes": "Explanation of how this schedule is optimized for the user",
+  "personalizedInsights": ["insight based on user's profile"]
 }
 
-Make tasks specific and actionable. Include realistic time estimates.`,
-      };
+Create 4-8 tasks that are specific, realistic, and aligned with the user's goals and constraints.`,
+    };
 
-      const schedulePrompt: ChatMessage = {
-        role: "user",
-        content: `Generate a daily schedule for today with this information:
-        
-User Profile:
-- Chronotype: ${request.userProfile.chronotype || "flexible"}
-- Work Style: ${request.userProfile.workStyle || "balanced"}
-- Work Hours: ${request.userProfile.workStartTime || "9:00"} - ${request.userProfile.workEndTime || "17:00"}
-- Break Duration: ${request.userProfile.breakDuration || 60} minutes
+    const today = new Date().toISOString().split("T")[0];
+    const userPrompt: ChatMessage = {
+      role: "user",
+      content: `Create a personalized daily schedule for today (${today}) with these details:
 
-Goals: ${request.goals.join(", ")}
-Available Hours: ${request.availableHours}
+GOALS TO WORK TOWARD:
+${request.goals.length > 0 ? request.goals.join("\n- ") : "General productivity and well-being"}
 
-${request.existingCommitments ? `Existing Commitments: ${JSON.stringify(request.existingCommitments)}` : ""}
+${
+  request.existingCommitments && request.existingCommitments.length > 0
+    ? `
+EXISTING COMMITMENTS TO WORK AROUND:
+${request.existingCommitments.map((c) => `- ${c.title}: ${c.startTime} - ${c.endTime}`).join("\n")}
+`
+    : ""
+}
 
-Please create an optimized schedule for today.`,
-      };
+Please create a schedule that maximizes productivity while respecting energy patterns and personal constraints. Focus on actionable, specific tasks that move the user toward their goals.`,
+    };
 
-      const response = await this.makeRequest([systemPrompt, schedulePrompt]);
+    try {
+      const response = await this.makeRequest([systemPrompt, userPrompt], {
+        temperature: 0.6,
+        max_tokens: 2000,
+      });
 
-      if (response.choices?.[0]?.message?.content) {
+      if (response.content) {
         try {
-          const schedule = JSON.parse(response.choices[0].message.content);
+          const schedule: ScheduleResponse = JSON.parse(response.content);
+
+          // Validate the schedule
+          if (!schedule.tasks || !Array.isArray(schedule.tasks)) {
+            throw new Error("Invalid schedule format received");
+          }
+
+          // Add timestamps to tasks if missing
+          schedule.tasks = schedule.tasks.map((task, index) => ({
+            ...task,
+            id: task.id || `task_${Date.now()}_${index}`,
+            startTime: task.startTime || `${today}T09:00:00`,
+            endTime: task.endTime || `${today}T10:00:00`,
+          }));
+
+          console.log(
+            `✅ Generated personalized schedule with ${schedule.tasks.length} tasks`
+          );
           return schedule;
         } catch (parseError) {
           console.error("Failed to parse schedule:", parseError);
-          // Return default schedule if parsing fails
-          return this.getDefaultSchedule();
+          throw new Error("Failed to parse schedule generation response");
         }
       }
 
-      throw new Error("No valid response from OpenAI");
+      throw new Error("No valid schedule response from AI");
     } catch (error) {
       console.error("Error generating schedule:", error);
-      // Return fallback schedule on error
-      return this.getDefaultSchedule();
+      throw error;
     }
   }
 
   /**
-   * Process detailed onboarding input from user
-   * Takes a comprehensive free-form text input and extracts insights
+   * Generate tasks based on specific goal breakdown
    */
-  async processDetailedOnboardingInput(
-    userInput: string,
-    basicProfile: {
+  async generateTasksFromGoal(
+    goalTitle: string,
+    goalDescription: string,
+    userProfile: {
       chronotype?: string;
       workStyle?: string;
-      stressResponse?: string;
+      availableHours?: number;
+    },
+    userContext?: string
+  ): Promise<GeneratedTask[]> {
+    if (!this.isConfigured) {
+      throw new Error(
+        "AI service is not available. Please configure your API key to generate personalized tasks."
+      );
     }
-  ): Promise<OnboardingConversationData> {
+
+    const systemPrompt: ChatMessage = {
+      role: "system",
+      content: `You are an expert task breakdown specialist. Create specific, actionable tasks that will help achieve the given goal.
+
+TASK CREATION PRINCIPLES:
+1. Make tasks SPECIFIC and ACTIONABLE (clear what to do)
+2. Appropriate TIME ESTIMATES (realistic durations)
+3. PRIORITIZE based on impact and dependencies
+4. Consider USER'S STYLE and constraints
+5. Create a logical PROGRESSION of tasks
+
+USER PROFILE:
+- Chronotype: ${userProfile.chronotype || "flexible"}
+- Work Style: ${userProfile.workStyle || "balanced"}
+- Available Hours: ${userProfile.availableHours || "flexible"}
+
+${userContext ? `USER CONTEXT: ${userContext}` : ""}
+
+Return a JSON array of tasks with this structure:
+[
+  {
+    "id": "unique_task_id",
+    "title": "Specific, actionable task title",
+    "description": "Clear step-by-step description",
+    "estimatedDuration": 60,
+    "priority": "high|medium|low",
+    "category": "work|personal|health|learning|planning",
+    "isFlexible": true,
+    "reasoning": "Why this task is important for the goal",
+    "adaptations": ["How this adapts to user's style"]
+  }
+]
+
+Generate 3-6 tasks that create a clear path toward achieving the goal.`,
+    };
+
+    const userPrompt: ChatMessage = {
+      role: "user",
+      content: `Create specific tasks to achieve this goal:
+
+GOAL: ${goalTitle}
+DESCRIPTION: ${goalDescription}
+
+Break this down into actionable tasks that consider the user's profile and constraints. Focus on creating a clear progression that leads to goal achievement.`,
+    };
+
     try {
-      const systemPrompt: ChatMessage = {
-        role: "system",
-        content: `You are an AI assistant analyzing a user's comprehensive onboarding input to extract key insights for personalized task scheduling.
+      const response = await this.makeRequest([systemPrompt, userPrompt], {
+        temperature: 0.5,
+        max_tokens: 1500,
+      });
 
-The user has provided detailed information about their goals, challenges, lifestyle, constraints, and preferences. Combined with their basic profile data, extract actionable insights.
-
-Analyze the input and extract:
-1. Primary goals (what they want to achieve) - be specific
-2. Current challenges (what's blocking them) - identify root causes  
-3. Lifestyle constraints (work, family, health, time, etc.) - practical limitations
-4. Motivation type (what drives them) - internal/external motivators
-5. Availability patterns (when they can work) - specific times/patterns
-6. Personality traits that affect productivity - work preferences
-
-Return your analysis in this exact JSON format:
-{
-  "primaryGoals": ["specific goal 1", "specific goal 2", "specific goal 3"],
-  "challenges": ["specific challenge 1", "specific challenge 2"],
-  "lifestyle": "comprehensive description of lifestyle constraints and context",
-  "motivationType": "detailed description of what motivates them and how",
-  "availabilityPattern": "specific times, days, and patterns when they're available",
-  "personalityTraits": ["trait1", "trait2", "trait3"]
-}
-
-Be specific, actionable, and extract insights that will help create personalized schedules.`,
-      };
-
-      const analysisPrompt: ChatMessage = {
-        role: "user",
-        content: `Please analyze this user's detailed onboarding information:
-
-Basic Profile:
-- Energy Pattern: ${basicProfile.chronotype || "Not specified"}
-- Work Style: ${basicProfile.workStyle || "Not specified"}  
-- Stress Response: ${basicProfile.stressResponse || "Not specified"}
-
-User's Detailed Input:
-"${userInput}"
-
-Extract comprehensive insights that will help create a personalized productivity system for this user.`,
-      };
-
-      const response = await this.makeRequest([systemPrompt, analysisPrompt]);
-
-      if (response.choices?.[0]?.message?.content) {
+      if (response.content) {
         try {
-          const aiInsights = JSON.parse(response.choices[0].message.content);
-          return {
-            fullTranscript: [{ role: "user", content: userInput }],
-            aiInsights,
-          };
+          const tasks: GeneratedTask[] = JSON.parse(response.content);
+
+          // Validate and add missing fields
+          const validTasks = tasks
+            .filter((task) => task.title && task.description)
+            .map((task, index) => ({
+              ...task,
+              id: task.id || `goal_task_${Date.now()}_${index}`,
+              startTime: task.startTime || "",
+              endTime: task.endTime || "",
+            }));
+
+          console.log(
+            `✅ Generated ${validTasks.length} tasks for goal: ${goalTitle}`
+          );
+          return validTasks;
         } catch (parseError) {
-          console.error("Failed to parse AI insights:", parseError);
-          return this.getDefaultInsights(userInput);
+          console.error("Failed to parse tasks:", parseError);
+          throw new Error("Failed to parse task generation response");
         }
       }
 
-      throw new Error("No valid response from OpenAI");
+      throw new Error("No valid task response from AI");
     } catch (error) {
-      console.error("Error processing detailed onboarding input:", error);
-      return this.getDefaultInsights(userInput);
+      console.error("Error generating tasks from goal:", error);
+      throw error;
     }
   }
 
   /**
-   * Get default insights for fallback scenarios
+   * Test the OpenAI connection
    */
-  private getDefaultInsights(userInput: string): OnboardingConversationData {
-    // Extract basic insights from user input using simple keyword matching
-    const input = userInput.toLowerCase();
-
-    const goals = [];
-    if (
-      input.includes("fit") ||
-      input.includes("exercise") ||
-      input.includes("health")
-    ) {
-      goals.push("Improve fitness and health");
-    }
-    if (
-      input.includes("code") ||
-      input.includes("program") ||
-      input.includes("develop")
-    ) {
-      goals.push("Develop programming skills");
-    }
-    if (
-      input.includes("work") ||
-      input.includes("career") ||
-      input.includes("job")
-    ) {
-      goals.push("Advance career");
-    }
-    if (
-      input.includes("learn") ||
-      input.includes("study") ||
-      input.includes("skill")
-    ) {
-      goals.push("Learn new skills");
-    }
-    if (goals.length === 0) {
-      goals.push("General productivity improvement");
+  async testConnection(): Promise<{ success: boolean; message: string }> {
+    if (!this.isConfigured) {
+      return {
+        success: false,
+        message:
+          "OpenAI API key not configured. Please set EXPO_PUBLIC_OPENAI_API_KEY environment variable.",
+      };
     }
 
-    const challenges = [];
-    if (input.includes("time") || input.includes("busy")) {
-      challenges.push("Time management");
-    }
-    if (input.includes("focus") || input.includes("distract")) {
-      challenges.push("Maintaining focus");
-    }
-    if (input.includes("motivat") || input.includes("consistent")) {
-      challenges.push("Staying motivated");
-    }
-    if (challenges.length === 0) {
-      challenges.push("General productivity challenges");
-    }
+    try {
+      const testMessage: ChatMessage = {
+        role: "user",
+        content:
+          "Hello! This is a test message. Please respond with 'Connection successful!'",
+      };
 
-    return {
-      fullTranscript: [{ role: "user", content: userInput }],
-      aiInsights: {
-        primaryGoals: goals,
-        challenges: challenges,
-        lifestyle:
-          input.includes("family") ||
-          input.includes("kids") ||
-          input.includes("parent")
-            ? "Busy family life with multiple responsibilities"
-            : "Active lifestyle with various commitments",
-        motivationType:
-          input.includes("progress") || input.includes("track")
-            ? "Progress tracking and visible improvement"
-            : "Achievement and goal completion",
-        availabilityPattern: input.includes("morning")
-          ? "Prefers morning hours for focused work"
-          : input.includes("evening") || input.includes("night")
-            ? "Prefers evening hours for focused work"
-            : "Flexible availability throughout the day",
-        personalityTraits: [
-          "Goal-oriented",
-          input.includes("detail") ? "Detail-oriented" : "Big-picture focused",
-          input.includes("social") || input.includes("team")
-            ? "Collaborative"
-            : "Independent worker",
-        ],
-      },
-    };
-  }
+      const response = await this.makeRequest([testMessage], {
+        max_tokens: 50,
+        temperature: 0,
+      });
 
-  /**
-   * Get default schedule for fallback scenarios
-   */
-  private getDefaultSchedule(): ScheduleResponse {
-    const now = new Date();
-    const today = now.toISOString().split("T")[0];
+      if (response.content) {
+        return {
+          success: true,
+          message: `OpenAI connection successful! Response: ${response.content}`,
+        };
+      }
 
-    return {
-      tasks: [
-        {
-          id: "morning_routine",
-          title: "Morning Routine",
-          description: "Start your day with a productive morning routine",
-          estimatedDuration: 30,
-          priority: "high",
-          category: "personal",
-          startTime: `${today}T08:00:00`,
-          endTime: `${today}T08:30:00`,
-          isFlexible: false,
-        },
-        {
-          id: "deep_work",
-          title: "Deep Work Session",
-          description: "Focus on your most important task",
-          estimatedDuration: 90,
-          priority: "high",
-          category: "work",
-          startTime: `${today}T09:00:00`,
-          endTime: `${today}T10:30:00`,
-          isFlexible: true,
-        },
-        {
-          id: "break_stretch",
-          title: "Break & Stretch",
-          description: "Take a refreshing break",
-          estimatedDuration: 15,
-          priority: "medium",
-          category: "health",
-          startTime: `${today}T10:30:00`,
-          endTime: `${today}T10:45:00`,
-          isFlexible: false,
-        },
-      ],
-      totalScheduledHours: 2.25,
-      suggestions: [
-        "Start with your most challenging task when energy is high",
-        "Take regular breaks to maintain focus",
-        "Review and adjust your schedule as needed",
-      ],
-      optimizationNotes: "Default schedule optimized for morning productivity",
-    };
-  }
-
-  /**
-   * Check if API key is configured
-   */
-  isConfigured(): boolean {
-    return !!this.apiKey;
+      return {
+        success: false,
+        message: "OpenAI connection test failed: No response content",
+      };
+    } catch (error) {
+      return {
+        success: false,
+        message: `OpenAI connection test failed: ${error instanceof Error ? error.message : "Unknown error"}`,
+      };
+    }
   }
 }
 

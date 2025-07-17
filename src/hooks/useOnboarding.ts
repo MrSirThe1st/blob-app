@@ -1,16 +1,21 @@
 // src/hooks/useOnboarding.ts
 /**
- * Complete onboarding hook that properly handles the 5-step flow with text inputs
+ * Enhanced onboarding hook with real AI integration
+ * Eliminates mock responses and provides proper error handling when AI is unavailable
  */
-import { onboardingCompletionService } from "@/screens/onboarding/OnboardingCompletionService";
+
 import { useCallback, useEffect, useState } from "react";
 import { useAuth } from "./useAuth";
+import { onboardingCompletionService } from "@/services/onboarding/OnboardingCompletionService";
+import { openAIService } from "@/services/api/openai";
 
 interface OnboardingState {
   currentStep: number;
   isLoading: boolean;
   hasError: boolean;
   errorMessage: string;
+  isAIAvailable: boolean;
+  completionResult?: any;
 }
 
 // Data structure that matches your onboarding flow design
@@ -37,12 +42,38 @@ interface OnboardingData {
 export const useOnboarding = () => {
   const { userProfile, updateProfile, refreshProfile, isAuthenticated } =
     useAuth();
+
   const [state, setState] = useState<OnboardingState>({
     currentStep: userProfile?.onboardingStep || 1,
     isLoading: false,
     hasError: false,
     errorMessage: "",
+    isAIAvailable: false,
   });
+
+  // Local state to store onboarding data across steps
+  const [onboardingData, setOnboardingData] = useState<OnboardingData>({});
+
+  // Check AI availability on mount
+  useEffect(() => {
+    const checkAIAvailability = async () => {
+      const isAvailable = openAIService.isServiceAvailable();
+      setState((prev) => ({ ...prev, isAIAvailable: isAvailable }));
+
+      if (isAvailable) {
+        // Test the connection
+        try {
+          const testResult = await openAIService.testConnection();
+          setState((prev) => ({ ...prev, isAIAvailable: testResult.success }));
+        } catch (error) {
+          console.warn("AI connection test failed:", error);
+          setState((prev) => ({ ...prev, isAIAvailable: false }));
+        }
+      }
+    };
+
+    checkAIAvailability();
+  }, []);
 
   // Ensure userProfile is loaded before onboarding starts
   useEffect(() => {
@@ -50,9 +81,6 @@ export const useOnboarding = () => {
       refreshProfile();
     }
   }, [isAuthenticated, userProfile, refreshProfile]);
-
-  // Local state to store onboarding data across steps
-  const [onboardingData, setOnboardingData] = useState<OnboardingData>({});
 
   const setLoading = useCallback((loading: boolean) => {
     setState((prev) => ({ ...prev, isLoading: loading }));
@@ -72,7 +100,7 @@ export const useOnboarding = () => {
   }, []);
 
   /**
-   * Validate if step data is sufficient to proceed (either selection OR meaningful text)
+   * Validate if step data is sufficient to proceed
    */
   const validateStepData = useCallback(
     (
@@ -96,7 +124,7 @@ export const useOnboarding = () => {
           return (
             (!!data.conversationText &&
               data.conversationText.trim().length >= 20) ||
-            hasMeaningfulInput
+            (hasMeaningfulInput && additionalInput!.trim().length >= 20)
           );
         default:
           return false;
@@ -192,206 +220,275 @@ export const useOnboarding = () => {
             setError("Failed to save your information. Please try again.");
             return false;
           }
+
+          // Move to next step
+          setState((prev) => ({ ...prev, currentStep: currentStep + 1 }));
+          return true;
         }
 
-        // Update current step
-        setState((prev) => ({
-          ...prev,
-          currentStep: currentStep + 1,
-          isLoading: false,
-          hasError: false,
-        }));
-
+        // Step 5 is the final step - handle completion
         return true;
       } catch (error) {
         console.error("Error saving onboarding step:", error);
         setError("An unexpected error occurred. Please try again.");
         return false;
+      } finally {
+        setLoading(false);
       }
     },
     [
       state.currentStep,
       validateStepData,
-      setLoading,
-      setError,
-      clearError,
       updateOnboardingData,
       updateProfile,
+      setLoading,
+      clearError,
+      setError,
     ]
   );
 
   /**
-   * Complete the onboarding process with automatic goal generation
-   * This is the key method that bridges onboarding to the goal/task system
+   * Complete the entire onboarding process with AI
    */
   const completeOnboarding = useCallback(
-    async (
-      conversationText: string
-    ): Promise<{
-      success: boolean;
-      redirectTo: string;
-      message: string;
-      data?: any;
-    }> => {
+    async (finalData?: Partial<OnboardingData>): Promise<boolean> => {
+      if (!userProfile?.id) {
+        setError("User profile not found. Please log in again.");
+        return false;
+      }
+
       setLoading(true);
       clearError();
 
       try {
-        // Always fetch the latest profile before proceeding
-        await refreshProfile();
-        // Wait a tick to ensure state updates (React state may not update synchronously)
-        await new Promise((resolve) => setTimeout(resolve, 100));
+        // Merge final data with existing onboarding data
+        const completeOnboardingData = { ...onboardingData, ...finalData };
 
-        // Use the latest userProfile after refresh
-        const latestProfile = userProfile;
-        if (!latestProfile?.id) {
-          setError("User profile not found. Please try logging in again.");
-          return {
-            success: false,
-            redirectTo: "Auth",
-            message: "Authentication error",
-          };
-        }
-
-        // Prepare final onboarding data
-        const finalOnboardingData = {
-          ...onboardingData,
-          conversationText: conversationText.trim(),
-        };
-
-        console.log("🚀 Starting automatic goal creation from onboarding...");
-
-        // STEP 1: Save basic onboarding completion to user profile
-        const profileUpdates = {
-          onboardingCompleted: true,
-          onboardingStep: 0, // Reset since completed
-
-          // Save the structured onboarding responses
-          energy_pattern: finalOnboardingData.energyPattern,
-          work_style: finalOnboardingData.workStyle,
-          stress_response: finalOnboardingData.stressResponse,
-          calendar_connected: finalOnboardingData.calendarConnected || false,
-
-          // Save the onboarding notes for future reference
-          onboardingNotes: {
-            energyPatternNote: finalOnboardingData.energyPatternNote,
-            workStyleNote: finalOnboardingData.workStyleNote,
-            stressResponseNote: finalOnboardingData.stressResponseNote,
-            conversationText: finalOnboardingData.conversationText,
-            completedAt: new Date().toISOString(),
-          },
-        };
-
-        const { error: profileError } = await updateProfile(profileUpdates);
-
-        if (profileError) {
-          console.error("Error updating profile:", profileError);
-          setError("Failed to save onboarding data. Please try again.");
-          return {
-            success: false,
-            redirectTo: "Onboarding",
-            message: "Profile update failed",
-          };
-        }
-
-        // STEP 2: Trigger automatic goal creation and task system initialization
-        const completionResult =
-          await onboardingCompletionService.completeOnboardingWithGoalGeneration(
-            latestProfile.id,
-            finalOnboardingData
+        // Check if we have a meaningful conversation
+        const conversationText = completeOnboardingData.conversationText || "";
+        if (conversationText.trim().length < 20) {
+          setError(
+            "Please provide more details about your goals and challenges to personalize your experience."
           );
+          return false;
+        }
 
-        // Update local state
-        setState((prev) => ({
-          ...prev,
-          currentStep: 0,
-          isLoading: false,
-          hasError: false,
-        }));
+        // Attempt AI-powered completion
+        let result;
+        if (state.isAIAvailable) {
+          console.log("🤖 Attempting AI-powered onboarding completion...");
+          result = await onboardingCompletionService.completeOnboardingWithAI(
+            userProfile.id,
+            completeOnboardingData
+          );
+        } else {
+          console.log("📝 AI unavailable, offering manual completion...");
+          // Don't automatically complete manually - inform user of the limitation
+          setError(
+            "AI services are currently unavailable. The personalized goal extraction and task generation features require AI to work properly. You can:\n\n1. Try again later when AI services are restored\n2. Contact support if the issue persists\n3. Continue with manual goal setup (less personalized)"
+          );
+          return false;
+        }
 
-        // Clear onboarding data since we're done
-        setOnboardingData({});
+        if (result.success) {
+          // Update profile to mark onboarding as completed
+          await updateProfile({
+            onboardingCompleted: true,
+            onboardingStep: 6, // Completed
+          });
 
-        console.log("✅ Onboarding completion result:", completionResult);
+          // Store completion result for navigation
+          setState((prev) => ({
+            ...prev,
+            completionResult: result,
+            currentStep: 6,
+          }));
 
-        return {
-          success: completionResult.success,
-          redirectTo: completionResult.redirectTo,
-          message: completionResult.message,
-          data: completionResult.data,
-        };
+          console.log("✅ Onboarding completed successfully:", result.message);
+          return true;
+        } else {
+          setError(result.error || result.message);
+          return false;
+        }
       } catch (error) {
-        console.error("Error completing onboarding:", error);
-        setError("Failed to complete onboarding. Please try again.");
-
-        // Fallback: basic completion without automatic goals
-        return {
-          success: true,
-          redirectTo: "Goals",
-          message: "Welcome to Blob! Let's start by creating your first goal.",
-        };
+        console.error("❌ Error completing onboarding:", error);
+        setError(
+          "An unexpected error occurred during completion. Please try again."
+        );
+        return false;
+      } finally {
+        setLoading(false);
       }
     },
     [
       userProfile?.id,
       onboardingData,
+      state.isAIAvailable,
       updateProfile,
       setLoading,
-      setError,
       clearError,
+      setError,
     ]
   );
 
   /**
-   * Go back to previous step
+   * Complete onboarding manually (when AI is not available)
    */
-  const goBackStep = useCallback(() => {
-    if (state.currentStep > 1) {
-      setState((prev) => ({
-        ...prev,
-        currentStep: prev.currentStep - 1,
-      }));
+  const completeOnboardingManually = useCallback(async (): Promise<boolean> => {
+    if (!userProfile?.id) {
+      setError("User profile not found. Please log in again.");
+      return false;
     }
-  }, [state.currentStep]);
+
+    setLoading(true);
+    clearError();
+
+    try {
+      console.log("📝 Completing onboarding manually...");
+      const result =
+        await onboardingCompletionService.completeOnboardingManually(
+          userProfile.id,
+          onboardingData
+        );
+
+      if (result.success) {
+        // Update profile to mark onboarding as completed
+        await updateProfile({
+          onboardingCompleted: true,
+          onboardingStep: 6, // Completed
+        });
+
+        setState((prev) => ({
+          ...prev,
+          completionResult: result,
+          currentStep: 6,
+        }));
+
+        console.log("✅ Manual onboarding completed:", result.message);
+        return true;
+      } else {
+        setError(result.error || result.message);
+        return false;
+      }
+    } catch (error) {
+      console.error("❌ Error in manual onboarding completion:", error);
+      setError("An unexpected error occurred. Please try again.");
+      return false;
+    } finally {
+      setLoading(false);
+    }
+  }, [
+    userProfile?.id,
+    onboardingData,
+    updateProfile,
+    setLoading,
+    clearError,
+    setError,
+  ]);
 
   /**
-   * Check if we can proceed from current step with given data and input
+   * Retry AI processing later (for users who completed manually)
    */
-  const canProceedWithData = useCallback(
-    (stepData: Partial<OnboardingData>, additionalInput?: string): boolean => {
-      return validateStepData(state.currentStep, stepData, additionalInput);
-    },
-    [state.currentStep, validateStepData]
-  );
+  const retryWithAI = useCallback(async (): Promise<boolean> => {
+    if (!userProfile?.id) {
+      setError("User profile not found. Please log in again.");
+      return false;
+    }
+
+    setLoading(true);
+    clearError();
+
+    try {
+      console.log("🔄 Retrying with AI...");
+      const result = await onboardingCompletionService.retryAIProcessing(
+        userProfile.id
+      );
+
+      if (result.success) {
+        setState((prev) => ({
+          ...prev,
+          completionResult: result,
+        }));
+
+        console.log("✅ AI processing completed:", result.message);
+        return true;
+      } else {
+        setError(result.error || result.message);
+        return false;
+      }
+    } catch (error) {
+      console.error("❌ Error retrying AI processing:", error);
+      setError("Failed to process with AI. Please try again later.");
+      return false;
+    } finally {
+      setLoading(false);
+    }
+  }, [userProfile?.id, setLoading, clearError, setError]);
 
   /**
-   * Get onboarding progress percentage
+   * Skip to a specific step (for debugging or navigation)
    */
-  const getProgress = useCallback((): number => {
-    return Math.round(((state.currentStep - 1) / 5) * 100);
-  }, [state.currentStep]);
+  const goToStep = useCallback((step: number) => {
+    if (step >= 1 && step <= 5) {
+      setState((prev) => ({ ...prev, currentStep: step }));
+    }
+  }, []);
+
+  /**
+   * Reset onboarding (start over)
+   */
+  const resetOnboarding = useCallback(async () => {
+    setOnboardingData({});
+    setState((prev) => ({
+      ...prev,
+      currentStep: 1,
+      hasError: false,
+      errorMessage: "",
+      completionResult: undefined,
+    }));
+
+    if (userProfile?.id) {
+      await updateProfile({
+        onboardingStep: 1,
+        onboardingCompleted: false,
+      });
+    }
+  }, [userProfile?.id, updateProfile]);
 
   return {
     // State
     currentStep: state.currentStep,
-    isLoading: state.isLoading,
+    loading: state.isLoading,
+    error: state.errorMessage,
     hasError: state.hasError,
-    errorMessage: state.errorMessage,
-    progress: getProgress(),
+    isAIAvailable: state.isAIAvailable,
+    completionResult: state.completionResult,
     onboardingData,
 
     // Actions
-    updateOnboardingData,
     saveStepAndContinue,
     completeOnboarding,
-    goBackStep,
-    clearError,
+    completeOnboardingManually,
+    retryWithAI,
+    updateOnboardingData,
+    goToStep,
+    resetOnboarding,
 
     // Validation
     validateStepData,
-    canProceedWithData,
 
-    // Computed
-    isOnboardingComplete: userProfile?.onboardingCompleted === true,
+    // Utilities
+    clearError,
+    isCompleted: userProfile?.onboardingCompleted || false,
+    isLastStep: state.currentStep === 5,
+    canProceed: (stepData: Partial<OnboardingData>, additionalInput?: string) =>
+      validateStepData(state.currentStep, stepData, additionalInput),
+
+    // AI Status helpers
+    aiStatusMessage: state.isAIAvailable
+      ? "AI services are available for personalized recommendations"
+      : "AI services are currently unavailable. You can complete setup manually or try again later.",
+
+    showAIUnavailableWarning: !state.isAIAvailable,
   };
 };
