@@ -35,3 +35,58 @@ Real-time notifications
 
 Tech Stack: React Native, Supabase (database), OpenAI API, JavaScript, PostgreSQL, with planned calendar API integrations and push notifications.
 The app follows a "blob philosophy" - fluid, adaptive, and personalized to each user's unique productivity patterns, with no two experiences being identical.
+
+
+Onboarding Process
+Your onboarding follows a 5-step conversational approach designed to deeply understand each user:
+Steps 1-4: Quick Setup 
+
+Energy Patterns - When users naturally feel most energetic (morning/afternoon/evening)
+Personality Assessment - Work style preferences and personality traits
+Work Style - Task completion preferences (long sessions vs. short bursts)
+Calendar Connection - Sync with Google/Microsoft/Apple calendars
+
+Step 5: Open Conversation
+
+Free-form inmput where users share goals, challenges, lifestyle, and personal context
+The AI extracts key insights about:
+
+Primary goals and priorities
+Current challenges and pain points
+Lifestyle constraints (family, work, health)
+Motivation triggers and personality traits
+
+
+
+AI Processing
+The system uses OpenAI to transform these informations into:
+
+Structured user profiles
+Personalized behavioral systems
+Initial goal recommendations
+Custom task scheduling preferences
+
+Post-Onboarding Experience
+After onboarding, users enter the main app with 6 core screens:
+Primary Flow (90% of usage):
+
+Home (40%) - Motivational dashboard with progress overview, energy check-ins, and AI insights
+Today (40%) - Daily task list with AI-optimized scheduling and task management
+Task Detail (15%) - Deep dive into individual tasks with AI tips and strategies
+
+Supporting Features (5%):
+
+Goals - Set and track meaningful objectives with AI decomposition
+Buddy - Accountability partner matching and progress sharing
+Insights - Progress analytics and productivity pattern analysis
+
+Key Post-Onboarding Features:
+
+Adaptive AI scheduling based on onboarding insights
+Personalized task recommendations
+Smart calendar integration
+Contextual productivity tips
+Accountability buddy matching
+Progress tracking with blob-themed visuals
+
+The system continuously learns from user behavior to refine its recommendations, creating an increasingly personalized productivity experience that adapts to each user's unique work style and goals.

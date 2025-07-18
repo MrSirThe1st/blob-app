@@ -253,17 +253,24 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     console.log("👤 Updating profile for:", user.email, updates);
 
     try {
-      const updatedProfile = await authService.updateUserProfile(
+      const { error } = await authService.updateUserProfile(
         user.id,
         updates
       );
 
-      if (updatedProfile) {
-        console.log("✅ Profile updated successfully");
-        setUserProfile(updatedProfile);
-        return { error: null };
+      if (!error) {
+        // Fetch the updated profile from the database
+        const newProfile = await authService.getUserProfile(user.id);
+        if (newProfile) {
+          setUserProfile(newProfile);
+          console.log("✅ Profile updated and reloaded successfully");
+          return { error: null };
+        } else {
+          const fetchError = new Error("Failed to fetch updated profile");
+          console.error("❌ Profile update failed:", fetchError.message);
+          return { error: fetchError };
+        }
       } else {
-        const error = new Error("Failed to update profile");
         console.error("❌ Profile update failed:", error.message);
         return { error };
       }

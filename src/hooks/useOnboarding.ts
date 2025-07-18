@@ -4,10 +4,10 @@
  * Eliminates mock responses and provides proper error handling when AI is unavailable
  */
 
+import { openAIService } from "@/services/api/openai";
+import { onboardingCompletionService } from "@/services/onboarding/OnboardingCompletionService";
 import { useCallback, useEffect, useState } from "react";
 import { useAuth } from "./useAuth";
-import { onboardingCompletionService } from "@/services/onboarding/OnboardingCompletionService";
-import { openAIService } from "@/services/api/openai";
 
 interface OnboardingState {
   currentStep: number;
@@ -296,6 +296,8 @@ export const useOnboarding = () => {
             onboardingCompleted: true,
             onboardingStep: 6, // Completed
           });
+          // Immediately refresh profile so UI state is up to date
+          await refreshProfile();
 
           // Store completion result for navigation
           setState((prev) => ({
@@ -325,6 +327,7 @@ export const useOnboarding = () => {
       onboardingData,
       state.isAIAvailable,
       updateProfile,
+      refreshProfile,
       setLoading,
       clearError,
       setError,
@@ -357,6 +360,8 @@ export const useOnboarding = () => {
           onboardingCompleted: true,
           onboardingStep: 6, // Completed
         });
+        // Immediately refresh profile so UI state is up to date
+        await refreshProfile();
 
         setState((prev) => ({
           ...prev,
@@ -381,6 +386,7 @@ export const useOnboarding = () => {
     userProfile?.id,
     onboardingData,
     updateProfile,
+    refreshProfile,
     setLoading,
     clearError,
     setError,

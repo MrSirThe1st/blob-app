@@ -1,20 +1,21 @@
 // src/screens/onboarding/OpenConversationScreen.tsx
-import React, { useState, useEffect } from "react";
-import {
-  View,
-  Text,
-  TouchableOpacity,
-  StyleSheet,
-  TextInput,
-  ScrollView,
-  Alert,
-} from "react-native";
-import { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import { useNavigation } from "@react-navigation/native";
-import { Ionicons } from "@expo/vector-icons";
-import { Colors, Typography, Spacing, BorderRadius } from "@/constants";
 import { OnboardingStackParamList } from "@/components/navigation/OnboardingNavigator";
+import { BorderRadius, Colors, Spacing, Typography } from "@/constants";
 import { useOnboarding } from "@/hooks/useOnboarding";
+import { navigateToTabAfterOnboarding } from "@/utils/navigationHelpers";
+import { Ionicons } from "@expo/vector-icons";
+import { useNavigation } from "@react-navigation/native";
+import { NativeStackNavigationProp } from "@react-navigation/native-stack";
+import { useEffect, useState } from "react";
+import {
+  Alert,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from "react-native";
 
 type NavigationProp = NativeStackNavigationProp<
   OnboardingStackParamList,
@@ -57,11 +58,11 @@ const OpenConversationScreen = () => {
   const navigation = useNavigation<NavigationProp>();
   const {
     completeOnboarding,
-    isLoading,
+    loading,
     hasError,
-    errorMessage,
+    error,
     clearError,
-    goBackStep,
+    completionResult,
   } = useOnboarding();
 
   const [conversationText, setConversationText] = useState("");
@@ -74,13 +75,12 @@ const OpenConversationScreen = () => {
 
   // Show error alert if there's an error
   useEffect(() => {
-    if (hasError && errorMessage) {
-      Alert.alert("Error", errorMessage, [{ text: "OK", onPress: clearError }]);
+    if (hasError && error) {
+      Alert.alert("Error", error, [{ text: "OK", onPress: clearError }]);
     }
-  }, [hasError, errorMessage, clearError]);
+  }, [hasError, error, clearError]);
 
   const handleBack = () => {
-    goBackStep();
     navigation.goBack();
   };
 
@@ -92,9 +92,51 @@ const OpenConversationScreen = () => {
     setConversationText(newText);
   };
 
+  useEffect(() => {
+    if (isCompleting && completionResult) {
+      setIsCompleting(false);
+      if (completionResult.success) {
+        Alert.alert(
+          "🎉 Welcome to Blob!",
+          completionResult.data
+            ? `Your productivity system is ready! We've created ${completionResult.data.goalsCreated} personalized goals and ${completionResult.data.tasksGenerated} tasks for you.`
+            : completionResult.message || "Setup complete!",
+          [
+            {
+              text: "Let's Go!",
+              onPress: () => {
+                if (
+                  completionResult.redirectTo === "Today" &&
+                  completionResult.data?.tasksGenerated > 0
+                ) {
+                  navigateToTabAfterOnboarding(navigation, "Today", true);
+                } else {
+                  navigateToTabAfterOnboarding(navigation, "Goals", false);
+                }
+              },
+            },
+          ]
+        );
+      } else {
+        Alert.alert(
+          "Welcome to Blob!",
+          completionResult?.message ||
+            "Let's start by creating your first goal.",
+          [
+            {
+              text: "Get Started",
+              onPress: () => {
+                navigateToTabAfterOnboarding(navigation, "Goals", false);
+              },
+            },
+          ]
+        );
+      }
+    }
+  }, [isCompleting, completionResult, navigation]);
+
   const handleCompleteOnboarding = async () => {
     const text = conversationText.trim();
-
     if (text.length < 20) {
       Alert.alert(
         "More Information Needed",
@@ -102,20 +144,24 @@ const OpenConversationScreen = () => {
       );
       return;
     }
-
     setIsCompleting(true);
-
     try {
-      const success = await completeOnboarding(text);
-
-      if (success) {
-        // Navigation will be handled automatically by AuthNavigator
-        console.log("Onboarding completed successfully!");
-      }
+      await completeOnboarding({ conversationText: text });
     } catch (error) {
-      console.error("Error completing onboarding:", error);
-    } finally {
       setIsCompleting(false);
+      console.error("Error completing onboarding:", error);
+      Alert.alert(
+        "Welcome to Blob!",
+        "There was an issue setting up your account, but don't worry - we can get you started manually.",
+        [
+          {
+            text: "Continue",
+            onPress: () => {
+              navigateToTabAfterOnboarding(navigation, "Goals", false);
+            },
+          },
+        ]
+      );
     }
   };
 
@@ -128,7 +174,7 @@ const OpenConversationScreen = () => {
         <TouchableOpacity
           style={styles.backButton}
           onPress={handleBack}
-          disabled={isLoading || isCompleting}
+          disabled={loading || isCompleting}
         >
           <Ionicons name="arrow-back" size={24} color={Colors.text.primary} />
         </TouchableOpacity>
@@ -160,7 +206,7 @@ const OpenConversationScreen = () => {
                 prompt.type === "important" && styles.quickPromptImportant,
               ]}
               onPress={() => handleQuickPrompt(prompt)}
-              disabled={isLoading || isCompleting}
+              disabled={loading || isCompleting}
             >
               <Text style={styles.quickPromptIcon}>{prompt.icon}</Text>
               <Text
@@ -191,7 +237,7 @@ const OpenConversationScreen = () => {
             onChangeText={setConversationText}
             multiline={true}
             textAlignVertical="top"
-            editable={!isLoading && !isCompleting}
+            editable={!loading && !isCompleting}
             autoFocus={true}
           />
         </ScrollView>
@@ -215,13 +261,13 @@ const OpenConversationScreen = () => {
           style={[
             styles.completeButton,
             canComplete && styles.completeButtonEnabled,
-            (isLoading || isCompleting || !canComplete) &&
+            (loading || isCompleting || !canComplete) &&
               styles.completeButtonDisabled,
           ]}
           onPress={handleCompleteOnboarding}
-          disabled={isLoading || isCompleting || !canComplete}
+          disabled={loading || isCompleting || !canComplete}
         >
-          {isCompleting || isLoading ? (
+          {isCompleting || loading ? (
             <View style={styles.loadingContainer}>
               <Text style={styles.completeButtonText}>Setting up Blob...</Text>
             </View>
