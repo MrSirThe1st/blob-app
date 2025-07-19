@@ -50,7 +50,6 @@ const TaskDetailBottomSheet: React.FC<TaskDetailBottomSheetProps> = ({
     sessionsUntilLongBreak: 4,
   });
   const [showCustomSettings, setShowCustomSettings] = useState(false);
-  const [calendarDate, setCalendarDate] = useState(new Date());
 
   // Timer interval ref
   const timerInterval = useRef<number | null>(null);
@@ -256,7 +255,6 @@ const TaskDetailBottomSheet: React.FC<TaskDetailBottomSheetProps> = ({
 
   const renderTimerOptions = () => (
     <View style={styles.timerSection}>
-      <Text style={styles.sectionTitle}>Start Your Timer</Text>
       <View style={styles.timerButtons}>
         <TouchableOpacity
           style={[
@@ -264,25 +262,16 @@ const TaskDetailBottomSheet: React.FC<TaskDetailBottomSheetProps> = ({
             selectedTimer === "recommended" && styles.timerButtonSelected,
           ]}
           onPress={() => handleTimerSelect("recommended")}
-          activeOpacity={0.8}
         >
-          <View
-            style={[
-              styles.timerIconContainer,
-              selectedTimer === "recommended" &&
-                styles.timerIconContainerSelected,
-            ]}
-          >
-            <Ionicons
-              name="bulb"
-              size={24}
-              color={
-                selectedTimer === "recommended"
-                  ? Colors.text.onPrimary
-                  : Colors.primary.main
-              }
-            />
-          </View>
+          <Ionicons
+            name="bulb"
+            size={20}
+            color={
+              selectedTimer === "recommended"
+                ? Colors.text.onPrimary
+                : Colors.text.primary
+            }
+          />
           <Text
             style={[
               styles.timerButtonText,
@@ -291,33 +280,6 @@ const TaskDetailBottomSheet: React.FC<TaskDetailBottomSheetProps> = ({
           >
             Recommended
           </Text>
-          <Text
-            style={[
-              styles.timerButtonSubtext,
-              selectedTimer === "recommended" &&
-                styles.timerButtonSubtextSelected,
-            ]}
-          >
-            ⚡ Start now
-          </Text>
-          {selectedTimer === "recommended" && (
-            <View style={styles.selectionIndicator}>
-              <Ionicons
-                name="checkmark"
-                size={14}
-                color={Colors.text.onPrimary}
-              />
-            </View>
-          )}
-          {selectedTimer !== "recommended" && (
-            <View style={styles.startIndicator}>
-              <Ionicons
-                name="play-circle"
-                size={16}
-                color={Colors.primary.main}
-              />
-            </View>
-          )}
         </TouchableOpacity>
 
         <TouchableOpacity
@@ -326,24 +288,16 @@ const TaskDetailBottomSheet: React.FC<TaskDetailBottomSheetProps> = ({
             selectedTimer === "custom" && styles.timerButtonSelected,
           ]}
           onPress={() => handleTimerSelect("custom")}
-          activeOpacity={0.8}
         >
-          <View
-            style={[
-              styles.timerIconContainer,
-              selectedTimer === "custom" && styles.timerIconContainerSelected,
-            ]}
-          >
-            <Ionicons
-              name="settings"
-              size={24}
-              color={
-                selectedTimer === "custom"
-                  ? Colors.text.onPrimary
-                  : Colors.primary.main
-              }
-            />
-          </View>
+          <Ionicons
+            name="timer"
+            size={20}
+            color={
+              selectedTimer === "custom"
+                ? Colors.text.onPrimary
+                : Colors.text.primary
+            }
+          />
           <Text
             style={[
               styles.timerButtonText,
@@ -352,199 +306,99 @@ const TaskDetailBottomSheet: React.FC<TaskDetailBottomSheetProps> = ({
           >
             Custom
           </Text>
-          <Text
-            style={[
-              styles.timerButtonSubtext,
-              selectedTimer === "custom" && styles.timerButtonSubtextSelected,
-            ]}
-          >
-            ⚙️ Configure
-          </Text>
-          {selectedTimer === "custom" && (
-            <View style={styles.selectionIndicator}>
-              <Ionicons
-                name="checkmark"
-                size={14}
-                color={Colors.text.onPrimary}
-              />
-            </View>
-          )}
-          {selectedTimer !== "custom" && (
-            <View style={styles.startIndicator}>
-              <Ionicons name="options" size={16} color={Colors.primary.main} />
-            </View>
-          )}
         </TouchableOpacity>
       </View>
-      <Text style={styles.timerHint}>
-        Tap a button above to start your productivity session
-      </Text>
     </View>
   );
 
   const renderMiniCalendar = () => {
-    const generateCalendar = () => {
-      const year = calendarDate.getFullYear();
-      const month = calendarDate.getMonth();
+    // Generate calendar data (simplified version)
+    const currentDate = new Date();
+    const daysInMonth = new Date(
+      currentDate.getFullYear(),
+      currentDate.getMonth() + 1,
+      0
+    ).getDate();
+    const firstDayOfMonth = new Date(
+      currentDate.getFullYear(),
+      currentDate.getMonth(),
+      1
+    ).getDay();
 
-      // Get first day of the month
-      const firstDay = new Date(year, month, 1);
-      const lastDay = new Date(year, month + 1, 0);
-
-      // Get the day of week for first day (0 = Sunday, 1 = Monday, etc.)
-      const firstDayOfWeek = firstDay.getDay();
-      const daysInMonth = lastDay.getDate();
-
-      // Get previous month info
-      const prevMonth = new Date(year, month - 1, 0);
-      const daysInPrevMonth = prevMonth.getDate();
-
-      const calendarDays = [];
-
-      // Add days from previous month
-      for (let i = firstDayOfWeek - 1; i >= 0; i--) {
-        calendarDays.push({
-          day: daysInPrevMonth - i,
-          isCurrentMonth: false,
-          isPrevMonth: true,
-          isNextMonth: false,
-          date: new Date(year, month - 1, daysInPrevMonth - i),
-        });
-      }
-
-      // Add days of current month
-      for (let day = 1; day <= daysInMonth; day++) {
-        calendarDays.push({
-          day: day,
-          isCurrentMonth: true,
-          isPrevMonth: false,
-          isNextMonth: false,
-          date: new Date(year, month, day),
-        });
-      }
-
-      // Add days from next month to complete the grid (42 days total = 6 weeks)
-      const remainingDays = 42 - calendarDays.length;
-      for (let day = 1; day <= remainingDays; day++) {
-        calendarDays.push({
-          day: day,
-          isCurrentMonth: false,
-          isPrevMonth: false,
-          isNextMonth: true,
-          date: new Date(year, month + 1, day),
-        });
-      }
-
-      return calendarDays;
-    };
-
-    const calendarDays = generateCalendar();
-    const today = new Date();
+    const calendarDays = [];
     const weekDays = ["S", "M", "T", "W", "T", "F", "S"];
 
-    const monthYear = calendarDate.toLocaleDateString("en-US", {
-      month: "long",
-      year: "numeric",
-    });
+    // Add empty cells for days before the first day of the month
+    for (let i = 0; i < firstDayOfMonth; i++) {
+      calendarDays.push(null);
+    }
 
-    const isToday = (dayData: any) => {
-      return dayData.date.toDateString() === today.toDateString();
-    };
-
-    const isCompleted = (dayData: any) => {
-      // Mock completion logic - replace with real data
-      if (!dayData.isCurrentMonth) return false;
-      if (dayData.date > today) return false;
-      return Math.random() > 0.4; // 60% completion rate
-    };
-
-    const navigateMonth = (direction: "prev" | "next") => {
-      const newDate = new Date(calendarDate);
-      newDate.setMonth(
-        calendarDate.getMonth() + (direction === "next" ? 1 : -1)
-      );
-      setCalendarDate(newDate);
-    };
+    // Add days of the month
+    for (let day = 1; day <= daysInMonth; day++) {
+      calendarDays.push(day);
+    }
 
     return (
       <View style={styles.calendarSection}>
-        <View style={styles.calendarContainer}>
-          {/* Header with month navigation */}
-          <View style={styles.calendarHeader}>
-            <TouchableOpacity
-              style={styles.calendarNavButton}
-              onPress={() => navigateMonth("prev")}
-            >
-              <Ionicons
-                name="chevron-back"
-                size={20}
-                color={Colors.text.primary}
-              />
-            </TouchableOpacity>
+        <View style={styles.calendarHeader}>
+          <Text style={styles.calendarTitle}>July</Text>
+          <Text style={styles.calendarTitle}>Elena(buddy)</Text>
+          <Text style={styles.calendarTitle}>July</Text>
+        </View>
 
-            <Text style={styles.calendarMonthTitle}>{monthYear}</Text>
-
-            <TouchableOpacity
-              style={styles.calendarNavButton}
-              onPress={() => navigateMonth("next")}
-            >
-              <Ionicons
-                name="chevron-forward"
-                size={20}
-                color={Colors.text.primary}
-              />
-            </TouchableOpacity>
-          </View>
-
-          {/* Calendar grid */}
-          <View style={styles.calendar}>
-            {/* Day names row */}
-            <View style={styles.dayNamesRow}>
-              {weekDays.map((dayName, index) => (
-                <View key={index} style={styles.dayNameCell}>
-                  <Text style={styles.dayNameText}>{dayName}</Text>
+        <View style={styles.calendarsContainer}>
+          {/* User's Calendar */}
+          <View style={styles.miniCalendar}>
+            <View style={styles.weekDaysRow}>
+              {weekDays.map((day, index) => (
+                <Text key={index} style={styles.weekDayText}>
+                  {day}
+                </Text>
+              ))}
+            </View>
+            <View style={styles.calendarGrid}>
+              {calendarDays.map((day, index) => (
+                <View key={index} style={styles.calendarDay}>
+                  {day && (
+                    <>
+                      <Text style={styles.dayNumber}>{day}</Text>
+                      {/* Show completion dots for some days */}
+                      {day <= currentDate.getDate() && Math.random() > 0.3 && (
+                        <View style={styles.completionDot} />
+                      )}
+                    </>
+                  )}
                 </View>
               ))}
             </View>
+          </View>
 
-            {/* Calendar rows - 6 weeks = 42 days */}
+          {/* Buddy's Calendar */}
+          <View style={styles.miniCalendar}>
+            <View style={styles.weekDaysRow}>
+              {weekDays.map((day, index) => (
+                <Text key={index} style={styles.weekDayText}>
+                  {day}
+                </Text>
+              ))}
+            </View>
             <View style={styles.calendarGrid}>
-              {Array.from({ length: 6 }, (_, rowIndex) => (
-                <View key={rowIndex} style={styles.calendarRow}>
-                  {calendarDays
-                    .slice(rowIndex * 7, (rowIndex + 1) * 7)
-                    .map((dayData, dayIndex) => {
-                      const globalIndex = rowIndex * 7 + dayIndex;
-                      const isTodayDate = isToday(dayData);
-                      const isCompletedDate = isCompleted(dayData);
-
-                      return (
-                        <View key={globalIndex} style={styles.dateCell}>
-                          {/* Today's date gets special styling */}
-                          {isTodayDate ? (
-                            <View style={styles.todayCircle}>
-                              <Text style={styles.todayText}>
-                                {dayData.day}
-                              </Text>
-                            </View>
-                          ) : (
-                            <Text
-                              style={[
-                                styles.dateText,
-                                !dayData.isCurrentMonth &&
-                                  styles.otherMonthText,
-                              ]}
-                            >
-                              {dayData.day}
-                            </Text>
-                          )}
-                          {/* Completion indicator */}
-                          {isCompletedDate && (
-                            <View style={styles.completionDot} />
-                          )}
-                        </View>
-                      );
-                    })}
+              {calendarDays.map((day, index) => (
+                <View key={index} style={styles.calendarDay}>
+                  {day && (
+                    <>
+                      <Text style={styles.dayNumber}>{day}</Text>
+                      {/* Show completion dots for some days */}
+                      {day <= currentDate.getDate() && Math.random() > 0.4 && (
+                        <View
+                          style={[
+                            styles.completionDot,
+                            { backgroundColor: Colors.success.main },
+                          ]}
+                        />
+                      )}
+                    </>
+                  )}
                 </View>
               ))}
             </View>
@@ -928,121 +782,35 @@ const styles = StyleSheet.create({
   },
   timerButtons: {
     flexDirection: "row",
-    gap: Spacing.lg,
-    paddingHorizontal: Spacing.xs,
+    gap: Spacing.md,
   },
   timerButton: {
     flex: 1,
-    flexDirection: "column",
+    flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    paddingVertical: Spacing.lg,
-    paddingHorizontal: Spacing.sm,
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.lg,
     borderRadius: BorderRadius.lg,
     borderWidth: 2,
-    borderColor: Colors.primary.main,
+    borderColor: Colors.neutral[300],
     backgroundColor: Colors.background.card,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.15,
-    shadowRadius: 6,
-    elevation: 4,
-    minHeight: 90,
-    position: "relative",
+    gap: Spacing.sm,
   },
   timerButtonSelected: {
-    backgroundColor: Colors.primary.main,
-    borderColor: Colors.primary.main,
-    shadowColor: Colors.primary.main,
-    shadowOpacity: 0.4,
-    shadowRadius: 10,
-    elevation: 8,
-    transform: [{ scale: 1.02 }],
+    backgroundColor: Colors.text.primary,
+    borderColor: Colors.text.primary,
   },
   timerButtonText: {
     ...Typography.bodyMedium,
     color: Colors.text.primary,
-    fontWeight: "800",
-    marginTop: Spacing.xs,
-    textAlign: "center",
-    fontSize: 14,
+    fontWeight: "600",
   },
   timerButtonTextSelected: {
     color: Colors.text.onPrimary,
   },
-  sectionTitle: {
-    ...Typography.h3,
-    color: Colors.text.primary,
-    fontWeight: "800",
-    marginBottom: Spacing.lg,
-    textAlign: "center",
-    fontSize: 18,
-  },
-  timerIconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: Colors.background.secondary,
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: Spacing.sm,
-    borderWidth: 2,
-    borderColor: Colors.primary.main,
-    shadowColor: Colors.primary.main,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  timerIconContainerSelected: {
-    backgroundColor: "rgba(255, 255, 255, 0.2)",
-    borderColor: Colors.text.onPrimary,
-    shadowColor: "#fff",
-    shadowOpacity: 0.3,
-  },
-  timerButtonSubtext: {
-    ...Typography.captionMedium,
-    color: Colors.text.secondary,
-    textAlign: "center",
-    marginTop: Spacing.xs,
-    fontWeight: "500",
-  },
-  timerButtonSubtextSelected: {
-    color: Colors.text.onPrimary,
-    opacity: 0.9,
-  },
-  selectionIndicator: {
-    position: "absolute",
-    top: Spacing.sm,
-    right: Spacing.sm,
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    backgroundColor: "rgba(255, 255, 255, 0.2)",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  startIndicator: {
-    position: "absolute",
-    bottom: Spacing.sm,
-    right: Spacing.sm,
-    opacity: 0.7,
-  },
-  timerHint: {
-    ...Typography.captionMedium,
-    color: Colors.text.secondary,
-    textAlign: "center",
-    marginTop: Spacing.md,
-    fontStyle: "italic",
-  },
   calendarSection: {
-    marginBottom: Spacing.lg,
-  },
-  // Calendar styles (matching WeeklyCalendar design)
-  calendarContainer: {
-    backgroundColor: Colors.background.card,
-    borderRadius: BorderRadius.lg,
-    padding: Spacing.sm,
+    marginBottom: Spacing.xl,
   },
   calendarHeader: {
     flexDirection: "row",
@@ -1050,79 +818,57 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: Spacing.md,
   },
-  calendarNavButton: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: Colors.background.secondary,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  calendarMonthTitle: {
-    ...Typography.h3,
+  calendarTitle: {
+    ...Typography.bodyMedium,
     color: Colors.text.primary,
     fontWeight: "600",
   },
-  calendar: {
-    gap: Spacing.xs,
+  calendarsContainer: {
+    flexDirection: "row",
+    gap: Spacing.md,
   },
-  dayNamesRow: {
+  miniCalendar: {
+    flex: 1,
+    backgroundColor: Colors.background.secondary,
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.sm,
+  },
+  weekDaysRow: {
     flexDirection: "row",
     justifyContent: "space-between",
+    marginBottom: Spacing.xs,
   },
-  dayNameCell: {
-    width: "14.28%", // 100% / 7 days = 14.28%
-    alignItems: "center",
-    paddingVertical: Spacing.xs / 2,
-  },
-  dayNameText: {
+  weekDayText: {
     ...Typography.captionSmall,
     color: Colors.text.secondary,
+    textAlign: "center",
+    width: 24,
     fontWeight: "500",
   },
   calendarGrid: {
-    gap: Spacing.xs / 2,
-  },
-  calendarRow: {
     flexDirection: "row",
-    justifyContent: "space-between",
+    flexWrap: "wrap",
   },
-  dateCell: {
-    width: "14.28%", // 100% / 7 days = 14.28%
-    aspectRatio: 1,
+  calendarDay: {
+    width: 24,
+    height: 24,
     alignItems: "center",
     justifyContent: "center",
-    borderRadius: BorderRadius.sm,
     position: "relative",
+    marginBottom: Spacing.xs,
   },
-  todayCircle: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: Colors.primary.main,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  dateText: {
-    ...Typography.bodyMedium,
+  dayNumber: {
+    ...Typography.captionSmall,
     color: Colors.text.primary,
-    fontWeight: "500",
-  },
-  otherMonthText: {
-    color: Colors.text.secondary,
-    opacity: 0.4,
-  },
-  todayText: {
-    color: Colors.text.onPrimary,
-    fontWeight: "700",
+    fontSize: 10,
   },
   completionDot: {
     position: "absolute",
-    bottom: 4,
+    bottom: 2,
     width: 4,
     height: 4,
     borderRadius: 2,
-    backgroundColor: Colors.success.main,
+    backgroundColor: Colors.primary.main,
   },
   tipsSection: {
     marginBottom: Spacing.xl,
