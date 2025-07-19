@@ -8,7 +8,7 @@ interface DailyTask {
   title: string;
   time: string;
   duration?: string;
-  type: "personal" | "work" | "gym" | "meal" | "break";
+  type: "personal" | "work" | "gym" | "meal" | "break" | "workout";
   isCompleted?: boolean;
   isActive?: boolean;
   icon?: string;
@@ -33,6 +33,7 @@ const getTaskIcon = (type: string, customIcon?: string): string => {
     case "work":
       return "briefcase-outline";
     case "gym":
+    case "workout":
       return "fitness-outline";
     case "meal":
       return "restaurant-outline";
@@ -50,6 +51,7 @@ const getTaskColor = (type: string): string => {
     case "work":
       return Colors.neutral[700];
     case "gym":
+    case "workout":
       return Colors.success.main;
     case "meal":
       return Colors.warning.main;

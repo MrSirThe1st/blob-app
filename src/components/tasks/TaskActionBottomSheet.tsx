@@ -1,15 +1,9 @@
 // src/components/tasks/TaskActionBottomSheet.tsx
 import { BorderRadius, Colors, Spacing, Typography } from "@/constants";
 import { Ionicons } from "@expo/vector-icons";
-import React from "react";
-import {
-  Modal,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  TouchableWithoutFeedback,
-  View,
-} from "react-native";
+import React, { useEffect, useRef } from "react";
+import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import RBSheet from "react-native-raw-bottom-sheet";
 
 interface TaskActionOption {
   id: string;
@@ -32,6 +26,16 @@ const TaskActionBottomSheet: React.FC<TaskActionBottomSheetProps> = ({
   onAction,
   taskTitle,
 }) => {
+  const refRBSheet = useRef<any>(null);
+
+  useEffect(() => {
+    if (visible) {
+      refRBSheet.current?.open();
+    } else {
+      refRBSheet.current?.close();
+    }
+  }, [visible]);
+
   const actions: TaskActionOption[] = [
     {
       id: "edit_manually",
@@ -77,96 +81,86 @@ const TaskActionBottomSheet: React.FC<TaskActionBottomSheetProps> = ({
   };
 
   return (
-    <Modal visible={visible} transparent animationType="slide">
-      <TouchableWithoutFeedback onPress={onClose}>
-        <View style={styles.overlay}>
-          <TouchableWithoutFeedback>
-            <View style={styles.bottomSheet}>
-              {/* Handle bar */}
-              <View style={styles.handleBar} />
-
-              {/* Task title if provided */}
-              {taskTitle && (
-                <View style={styles.titleSection}>
-                  <Text style={styles.taskTitle} numberOfLines={2}>
-                    {taskTitle}
-                  </Text>
-                </View>
-              )}
-
-              {/* Action options */}
-              <View style={styles.actionsContainer}>
-                {actions.map((action, index) => (
-                  <TouchableOpacity
-                    key={action.id}
-                    style={[
-                      styles.actionItem,
-                      index === actions.length - 1 && styles.lastActionItem,
-                    ]}
-                    onPress={() => handleAction(action.id)}
-                  >
-                    <View style={styles.actionLeft}>
-                      <View
-                        style={[
-                          styles.actionIcon,
-                          { backgroundColor: action.color + "15" }, // 15% opacity
-                        ]}
-                      >
-                        <Ionicons
-                          name={action.icon as any}
-                          size={18}
-                          color={action.color}
-                        />
-                      </View>
-                      <Text
-                        style={[
-                          styles.actionLabel,
-                          { color: action.color },
-                          action.destructive && styles.destructiveText,
-                        ]}
-                      >
-                        {action.label}
-                      </Text>
-                    </View>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            </View>
-          </TouchableWithoutFeedback>
+    <RBSheet
+      ref={refRBSheet}
+      closeOnPressMask={true}
+      onClose={onClose}
+      customStyles={{
+        wrapper: {
+          backgroundColor: "rgba(0, 0, 0, 0.5)",
+        },
+        container: {
+          backgroundColor: Colors.background.card,
+          borderTopLeftRadius: BorderRadius.xl,
+          borderTopRightRadius: BorderRadius.xl,
+          paddingBottom: Spacing.xl,
+        },
+        draggableIcon: {
+          backgroundColor: Colors.neutral[300],
+          width: 36,
+          height: 4,
+        },
+      }}
+      height={400}
+    >
+      {/* Task title if provided */}
+      {taskTitle && (
+        <View style={styles.titleSection}>
+          <Text style={styles.taskTitle} numberOfLines={2}>
+            {taskTitle}
+          </Text>
         </View>
-      </TouchableWithoutFeedback>
-    </Modal>
+      )}
+
+      {/* Action options */}
+      <View style={styles.actionsContainer}>
+        {actions.map((action, index) => (
+          <TouchableOpacity
+            key={action.id}
+            style={[
+              styles.actionItem,
+              index === actions.length - 1 && styles.lastActionItem,
+            ]}
+            onPress={() => handleAction(action.id)}
+          >
+            <View style={styles.actionLeft}>
+              <View
+                style={[
+                  styles.actionIcon,
+                  { backgroundColor: action.color + "15" }, // 15% opacity
+                ]}
+              >
+                <Ionicons
+                  name={action.icon as any}
+                  size={18}
+                  color={action.color}
+                />
+              </View>
+              <Text
+                style={[
+                  styles.actionLabel,
+                  { color: action.color },
+                  action.destructive && styles.destructiveText,
+                ]}
+              >
+                {action.label}
+              </Text>
+            </View>
+          </TouchableOpacity>
+        ))}
+      </View>
+    </RBSheet>
   );
 };
 
 const styles = StyleSheet.create({
-  overlay: {
-    flex: 1,
-    backgroundColor: "rgba(0, 0, 0, 0.5)",
-    justifyContent: "flex-end",
-  },
-  bottomSheet: {
-    backgroundColor: Colors.background.card,
-    borderTopLeftRadius: BorderRadius.xl,
-    borderTopRightRadius: BorderRadius.xl,
-    paddingBottom: Spacing.xl,
-    maxHeight: "80%",
-  },
-  handleBar: {
-    width: 36,
-    height: 4,
-    backgroundColor: Colors.neutral[300],
-    borderRadius: 2,
-    alignSelf: "center",
-    marginTop: Spacing.sm,
-    marginBottom: Spacing.lg,
-  },
   titleSection: {
     paddingHorizontal: Spacing.lg,
     marginBottom: Spacing.md,
     borderBottomWidth: 1,
     borderBottomColor: Colors.neutral[200],
     paddingBottom: Spacing.md,
+    marginTop: Spacing.sm,
   },
   taskTitle: {
     ...Typography.h3,
