@@ -1,344 +1,195 @@
-// src/screens/main/TodayScreen.tsx (Enhanced with AI Scheduling)
-import {
-  EmptyTasksState,
-  ProgressBlob,
-  TaskCard,
-  TaskDetailModal,
-} from "@/components/tasks";
-import {
-  BorderRadius,
-  Colors,
-  Padding,
-  Spacing,
-  Typography,
-} from "@/constants";
+// src/screens/main/TodayScreen.tsx (Calendar-based UI)
+import FloatingAIAssistant from "@/components/ai/FloatingAIAssistant";
+import WeeklyCalendar from "@/components/calendar/WeeklyCalendar";
+import ProductivityToolbar from "@/components/productivity/ProductivityToolbar";
+import DailyTaskCard from "@/components/tasks/DailyTaskCard";
+import FreeTimeBlock from "@/components/tasks/FreeTimeBlock";
+import { Colors, Spacing, Typography } from "@/constants";
 import { useAuth } from "@/hooks/useAuth";
-import { useScheduling } from "@/hooks/useScheduling";
 import { useTasks } from "@/hooks/useTasks";
-import { Task } from "@/types/tasks";
-import { useState } from "react";
-import {
-  Alert,
-  RefreshControl,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import React, { useEffect, useState } from "react";
+import { SafeAreaView, ScrollView, StyleSheet, Text, View } from "react-native";
 
-const TodayScreen = () => {
+const TodayScreen: React.FC = () => {
   const { userProfile } = useAuth();
-  const {
-    tasks,
-    taskStats,
-    loading: tasksLoading,
-    error: tasksError,
-    loadTasks,
-    completeTask,
-    rescheduleTask,
-    clearError: clearTasksError,
-  } = useTasks(userProfile?.id);
+  const { tasks, loadTasks, completeTask } = useTasks(userProfile?.id);
+  const [selectedDate, setSelectedDate] = useState(new Date());
 
-  const {
-    schedule,
-    basicSchedule,
-    loading: scheduleLoading,
-    error: scheduleError,
-    generateAISchedule,
-    generateBasicSchedule,
-    getBestSchedule,
-    hasAISchedule,
-    clearError: clearScheduleError,
-  } = useScheduling(userProfile?.id);
+  useEffect(() => {
+    if (userProfile?.id) {
+      loadTasks();
+    }
+  }, [userProfile?.id, loadTasks]);
 
-  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
-  const [showTaskDetail, setShowTaskDetail] = useState(false);
-  const [showScheduleView, setShowScheduleView] = useState(false);
+  // Filter tasks for selected date
+  const selectedDateTasks = tasks.filter((task) => {
+    const taskDate = new Date(task.scheduled_date);
+    return taskDate.toDateString() === selectedDate.toDateString();
+  });
 
-  const currentSchedule = getBestSchedule();
-  const loading = tasksLoading || scheduleLoading;
-  const error = tasksError || scheduleError;
+  // Mock completion data for calendar
+  const completedDays = tasks
+    .filter((task) => task.status === "completed")
+    .map((task) => new Date(task.scheduled_date).toDateString());
 
-  const handleTaskComplete = async (taskId: string) => {
+  const handleTaskToggle = async (taskId: string) => {
     try {
       await completeTask(taskId);
-      Alert.alert("Success", "Task completed! XP awarded.");
     } catch (error) {
-      Alert.alert("Error", "Failed to complete task");
+      console.error("Failed to complete task:", error);
     }
   };
 
-  const handleTaskReschedule = async (taskId: string) => {
-    Alert.alert("Reschedule Task", "When would you like to do this task?", [
-      {
-        text: "Tomorrow",
-        onPress: () => {
-          const tomorrow = new Date();
-          tomorrow.setDate(tomorrow.getDate() + 1);
-          rescheduleTask(taskId, tomorrow.toISOString().split("T")[0]);
-        },
-      },
-      {
-        text: "This Weekend",
-        onPress: () => {
-          const weekend = new Date();
-          const daysUntilSat = (6 - weekend.getDay()) % 7;
-          weekend.setDate(weekend.getDate() + daysUntilSat);
-          rescheduleTask(taskId, weekend.toISOString().split("T")[0]);
-        },
-      },
-      { text: "Cancel", style: "cancel" },
-    ]);
+  const handleAIAssistantMessage = (message: string) => {
+    // Handle AI assistant message
+    console.log("AI message:", message);
   };
 
-  const handleTaskPress = (task: Task) => {
-    setSelectedTask(task);
-    setShowTaskDetail(true);
-  };
-
-  const handleTaskUpdate = async (taskId: string, updates: Partial<Task>) => {
-    try {
-      setShowTaskDetail(false);
-      await loadTasks();
-    } catch (error) {
-      Alert.alert("Error", "Failed to update task");
+  // Convert task type to DailyTaskCard type
+  const getTaskCardType = (taskType: string) => {
+    switch (taskType) {
+      case "daily_habit":
+        return "habit";
+      case "weekly_task":
+      case "one_time":
+        return "work";
+      case "milestone":
+        return "workout";
+      default:
+        return "work";
     }
   };
 
-  const handleGenerateSchedule = async () => {
-    try {
-      await generateAISchedule();
-      Alert.alert("Success", "AI-optimized schedule generated!");
-    } catch (error) {
-      // Fallback to basic schedule
-      await generateBasicSchedule();
-      Alert.alert(
-        "Info",
-        "Basic schedule generated. AI scheduling temporarily unavailable."
-      );
-    }
+  // Mock intensity based on task type (you can replace this with real data)
+  const getTaskIntensity = (task: any) => {
+    if (task.type === "daily_habit") return "easy";
+    if (task.type === "milestone") return "hard";
+    return "medium";
   };
 
-  const handleRefresh = async () => {
-    await Promise.all([
-      loadTasks(),
-      generateAISchedule().catch(() => generateBasicSchedule()),
-    ]);
+  // Mock streak count (you can replace this with real data)
+  const getTaskStreak = (task: any) => {
+    // This should come from your database
+    return Math.floor(Math.random() * 20) + 1; // Mock data: 1-20
   };
 
-  if (error) {
-    return (
-      <SafeAreaView style={styles.container}>
-        <View style={styles.errorContainer}>
-          <Text style={styles.errorTitle}>Something went wrong</Text>
-          <Text style={styles.errorMessage}>{error}</Text>
-          <TouchableOpacity
-            style={styles.retryButton}
-            onPress={() => {
-              clearTasksError();
-              clearScheduleError();
-              handleRefresh();
-            }}
-          >
-            <Text style={styles.retryButtonText}>Try Again</Text>
-          </TouchableOpacity>
-        </View>
-      </SafeAreaView>
-    );
-  }
+  // Temporary mock tasks to demonstrate the new design (remove this later)
+  const mockTasks = [
+    {
+      id: "mock-1",
+      title: "Make your bed",
+      scheduled_date: new Date().toISOString().split("T")[0],
+      suggested_time_slot: "7:00 AM",
+      estimated_duration: 5,
+      type: "daily_habit",
+      status: "completed",
+    },
+    {
+      id: "mock-2",
+      title: "Workout",
+      scheduled_date: new Date().toISOString().split("T")[0],
+      suggested_time_slot: "7:30 AM",
+      estimated_duration: 60,
+      type: "milestone",
+      status: "in_progress",
+    },
+    {
+      id: "mock-3",
+      title: "Work on project",
+      scheduled_date: new Date().toISOString().split("T")[0],
+      suggested_time_slot: "1:00 PM",
+      estimated_duration: 150,
+      type: "weekly_task",
+      status: "pending",
+    },
+  ];
+
+  // Use mock tasks if no real tasks exist for today
+  const displayTasks =
+    selectedDateTasks.length > 0 ? selectedDateTasks : mockTasks;
+
+  // Mock productivity data
+  const productivityData = {
+    completedTasks: displayTasks.filter((task) => task.status === "completed")
+      .length,
+    totalTasks: displayTasks.length,
+  };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <ScrollView
-        style={styles.scrollView}
-        refreshControl={
-          <RefreshControl refreshing={loading} onRefresh={handleRefresh} />
-        }
-      >
-        <View style={styles.content}>
-          {/* Header */}
-          <View style={styles.header}>
-            <View>
-              <Text style={styles.title}>Today</Text>
-              <Text style={styles.date}>
-                {new Date().toLocaleDateString("en-US", {
-                  weekday: "long",
-                  month: "long",
-                  day: "numeric",
-                })}
-              </Text>
-            </View>
+    <>
+      <SafeAreaView style={styles.container}>
+        <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+          {/* Weekly Calendar */}
+          <View style={styles.section}>
+            <WeeklyCalendar
+              selectedDate={selectedDate}
+              onDateSelect={setSelectedDate}
+              completedDays={completedDays}
+            />
+          </View>
 
-            {/* AI Schedule Indicator */}
-            {hasAISchedule && (
-              <View style={styles.aiIndicator}>
-                <Text style={styles.aiIndicatorText}>AI ✨</Text>
-              </View>
+          {/* Productivity Toolbar */}
+          <ProductivityToolbar
+            completedTasks={productivityData.completedTasks}
+            totalTasks={productivityData.totalTasks}
+          />
+
+          {/* Tasks List */}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>
+              {selectedDate.toDateString() === new Date().toDateString()
+                ? "Today's Schedule"
+                : `Schedule for ${selectedDate.toLocaleDateString()}`}
+            </Text>
+
+            {displayTasks.length === 0 ? (
+              <FreeTimeBlock
+                startTime="9:00 AM"
+                endTime="6:00 PM"
+                onAddTask={() => console.log("Add task")}
+                isActive={
+                  selectedDate.toDateString() === new Date().toDateString()
+                }
+              />
+            ) : (
+              <>
+                {displayTasks.map((task) => (
+                  <DailyTaskCard
+                    key={task.id}
+                    task={{
+                      id: task.id,
+                      title: task.title,
+                      time: task.suggested_time_slot || "9:00 AM",
+                      duration: task.estimated_duration
+                        ? `${task.estimated_duration}m`
+                        : "30m",
+                      type: getTaskCardType(task.type) as any,
+                      isCompleted: task.status === "completed",
+                      isActive: task.status === "in_progress",
+                      intensity: getTaskIntensity(task),
+                      streak: getTaskStreak(task),
+                    }}
+                    onComplete={() => handleTaskToggle(task.id)}
+                    onTimer={() => console.log("Start timer for", task.id)}
+                  />
+                ))}
+
+                {/* Add some free time blocks between tasks */}
+                {selectedDateTasks.length > 0 && (
+                  <FreeTimeBlock
+                    startTime="2:00 PM"
+                    endTime="3:00 PM"
+                    onAddTask={() => console.log("Add task")}
+                  />
+                )}
+              </>
             )}
           </View>
+        </ScrollView>
+      </SafeAreaView>
 
-          {/* Progress Overview */}
-          <View style={styles.progressCard}>
-            <View style={styles.progressHeader}>
-              <Text style={styles.cardTitle}>Progress</Text>
-              <ProgressBlob
-                completed={taskStats.completed}
-                total={taskStats.total}
-              />
-            </View>
-
-            <View style={styles.progressStats}>
-              <View style={styles.statItem}>
-                <Text style={styles.statNumber}>{taskStats.completed}</Text>
-                <Text style={styles.statLabel}>Completed</Text>
-              </View>
-              <View style={styles.statItem}>
-                <Text style={styles.statNumber}>{taskStats.total}</Text>
-                <Text style={styles.statLabel}>Total</Text>
-              </View>
-              <View style={styles.statItem}>
-                <Text style={styles.statNumber}>
-                  {Math.round(taskStats.completion_rate)}%
-                </Text>
-                <Text style={styles.statLabel}>Rate</Text>
-              </View>
-            </View>
-          </View>
-
-          {/* Schedule Overview */}
-          {currentSchedule && (
-            <View style={styles.scheduleCard}>
-              <View style={styles.scheduleHeader}>
-                <Text style={styles.cardTitle}>
-                  {hasAISchedule ? "AI-Optimized Schedule" : "Daily Schedule"}
-                </Text>
-                <TouchableOpacity
-                  onPress={() => setShowScheduleView(!showScheduleView)}
-                >
-                  <Text style={styles.viewToggle}>
-                    {showScheduleView ? "Hide" : "View"}
-                  </Text>
-                </TouchableOpacity>
-              </View>
-
-              {showScheduleView && (
-                <View style={styles.scheduleContent}>
-                  {/* AI Schedule */}
-                  {hasAISchedule && schedule?.timeBlocks && (
-                    <View style={styles.timeBlocks}>
-                      {schedule.timeBlocks.slice(0, 4).map((block, index) => (
-                        <View key={index} style={styles.timeBlock}>
-                          <Text style={styles.timeBlockTime}>
-                            {block.startTime} - {block.endTime}
-                          </Text>
-                          <Text style={styles.timeBlockTitle}>
-                            {block.taskTitle}
-                          </Text>
-                          <Text style={styles.timeBlockMeta}>
-                            {block.energyLevel} energy • {block.priority}{" "}
-                            priority
-                          </Text>
-                        </View>
-                      ))}
-                    </View>
-                  )}
-
-                  {/* Basic Schedule Fallback */}
-                  {!hasAISchedule && basicSchedule?.tasks && (
-                    <View style={styles.timeBlocks}>
-                      {basicSchedule.tasks
-                        .slice(0, 4)
-                        .map((task: any, index: number) => (
-                          <View key={index} style={styles.timeBlock}>
-                            <Text style={styles.timeBlockTime}>
-                              {task.startTime} - {task.endTime}
-                            </Text>
-                            <Text style={styles.timeBlockTitle}>
-                              {task.title}
-                            </Text>
-                            <Text style={styles.timeBlockMeta}>
-                              {task.priority} priority •{" "}
-                              {task.estimatedDuration}min
-                            </Text>
-                          </View>
-                        ))}
-                    </View>
-                  )}
-
-                  {/* AI Recommendations */}
-                  {hasAISchedule && schedule?.recommendations && (
-                    <View style={styles.recommendationsSection}>
-                      <Text style={styles.recommendationsTitle}>
-                        💡 AI Recommendations
-                      </Text>
-                      {schedule.recommendations
-                        .slice(0, 2)
-                        .map((rec, index) => (
-                          <Text key={index} style={styles.recommendation}>
-                            • {rec}
-                          </Text>
-                        ))}
-                    </View>
-                  )}
-                </View>
-              )}
-            </View>
-          )}
-
-          {/* Schedule Actions */}
-          <View style={styles.scheduleActions}>
-            <TouchableOpacity
-              style={styles.scheduleActionButton}
-              onPress={handleGenerateSchedule}
-            >
-              <Text style={styles.scheduleActionText}>
-                {hasAISchedule
-                  ? "🔄 Regenerate AI Schedule"
-                  : "✨ Generate AI Schedule"}
-              </Text>
-            </TouchableOpacity>
-          </View>
-
-          {/* Task List */}
-          {loading && tasks.length === 0 ? (
-            <View style={styles.loadingCard}>
-              <Text style={styles.loadingText}>Loading your tasks...</Text>
-            </View>
-          ) : tasks.length === 0 ? (
-            <EmptyTasksState />
-          ) : (
-            <View style={styles.tasksContainer}>
-              <Text style={styles.sectionTitle}>Today's Tasks</Text>
-              {tasks.map((task) => (
-                <TouchableOpacity
-                  key={task.id}
-                  onPress={() => handleTaskPress(task)}
-                >
-                  <TaskCard
-                    task={task}
-                    onComplete={() => handleTaskComplete(task.id)}
-                    onReschedule={() => handleTaskReschedule(task.id)}
-                  />
-                </TouchableOpacity>
-              ))}
-            </View>
-          )}
-        </View>
-      </ScrollView>
-
-      {/* Task Detail Modal */}
-      <TaskDetailModal
-        task={selectedTask}
-        visible={showTaskDetail}
-        onClose={() => {
-          setShowTaskDetail(false);
-          setSelectedTask(null);
-        }}
-        onUpdate={handleTaskUpdate}
-      />
-    </SafeAreaView>
+      <FloatingAIAssistant onSendMessage={handleAIAssistantMessage} />
+    </>
   );
 };
 
@@ -347,188 +198,27 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: Colors.background.primary,
   },
-  scrollView: {
-    flex: 1,
-  },
-  content: {
-    padding: Spacing.lg,
-  },
   header: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "flex-start",
-    marginBottom: Spacing.xl,
+    padding: Spacing.lg,
+    paddingBottom: Spacing.md,
   },
   title: {
     ...Typography.h1,
     color: Colors.text.primary,
-    marginBottom: Spacing.xs,
+    fontWeight: "700",
   },
-  date: {
-    ...Typography.bodyMedium,
-    color: Colors.text.secondary,
+  content: {
+    flex: 1,
+    paddingHorizontal: Spacing.lg,
   },
-  aiIndicator: {
-    backgroundColor: Colors.primary.main,
-    paddingHorizontal: Spacing.sm,
-    paddingVertical: Spacing.xs,
-    borderRadius: BorderRadius.md,
-  },
-  aiIndicatorText: {
-    ...Typography.captionSmall,
-    color: Colors.text.onPrimary,
-    fontWeight: "bold",
-  },
-  progressCard: {
-    backgroundColor: Colors.background.card,
-    padding: Padding.card.medium,
-    borderRadius: BorderRadius.blob.medium,
+  section: {
     marginBottom: Spacing.lg,
-  },
-  progressHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: Spacing.md,
-  },
-  cardTitle: {
-    ...Typography.h3,
-    color: Colors.text.primary,
-  },
-  progressStats: {
-    flexDirection: "row",
-    justifyContent: "space-around",
-  },
-  statItem: {
-    alignItems: "center",
-  },
-  statNumber: {
-    ...Typography.h2,
-    color: Colors.primary.main,
-    marginBottom: Spacing.xs,
-  },
-  statLabel: {
-    ...Typography.captionMedium,
-    color: Colors.text.muted,
-  },
-  scheduleCard: {
-    backgroundColor: Colors.background.card,
-    padding: Padding.card.medium,
-    borderRadius: BorderRadius.blob.medium,
-    marginBottom: Spacing.lg,
-  },
-  scheduleHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: Spacing.md,
-  },
-  viewToggle: {
-    ...Typography.bodyMedium,
-    color: Colors.primary.main,
-  },
-  scheduleContent: {
-    marginTop: Spacing.sm,
-  },
-  timeBlocks: {
-    gap: Spacing.sm,
-  },
-  timeBlock: {
-    backgroundColor: Colors.background.secondary,
-    padding: Padding.card.small,
-    borderRadius: BorderRadius.md,
-  },
-  timeBlockTime: {
-    ...Typography.captionMedium,
-    color: Colors.primary.main,
-    fontWeight: "bold",
-  },
-  timeBlockTitle: {
-    ...Typography.bodyMedium,
-    color: Colors.text.primary,
-    marginVertical: Spacing.xs,
-  },
-  timeBlockMeta: {
-    ...Typography.captionSmall,
-    color: Colors.text.muted,
-  },
-  recommendationsSection: {
-    marginTop: Spacing.md,
-    paddingTop: Spacing.md,
-    borderTopWidth: 1,
-    borderTopColor: Colors.background.secondary,
-  },
-  recommendationsTitle: {
-    ...Typography.bodyMedium,
-    color: Colors.text.primary,
-    fontWeight: "bold",
-    marginBottom: Spacing.sm,
-  },
-  recommendation: {
-    ...Typography.bodySmall,
-    color: Colors.text.secondary,
-    marginBottom: Spacing.xs,
-    fontStyle: "italic",
-  },
-  scheduleActions: {
-    marginBottom: Spacing.lg,
-  },
-  scheduleActionButton: {
-    backgroundColor: Colors.primary.main,
-    paddingVertical: Padding.button.medium.vertical,
-    paddingHorizontal: Padding.button.medium.horizontal,
-    borderRadius: BorderRadius.md,
-    alignItems: "center",
-  },
-  scheduleActionText: {
-    ...Typography.buttonMedium,
-    color: Colors.text.onPrimary,
-  },
-  loadingCard: {
-    backgroundColor: Colors.background.card,
-    padding: Padding.card.medium,
-    borderRadius: BorderRadius.blob.medium,
-    alignItems: "center",
-  },
-  loadingText: {
-    ...Typography.bodyMedium,
-    color: Colors.text.muted,
-  },
-  tasksContainer: {
-    marginTop: Spacing.md,
   },
   sectionTitle: {
-    ...Typography.h3,
+    ...Typography.bodyLarge,
     color: Colors.text.primary,
+    fontWeight: "600",
     marginBottom: Spacing.md,
-  },
-  errorContainer: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    padding: Spacing.xl,
-  },
-  errorTitle: {
-    ...Typography.h2,
-    color: Colors.error,
-    marginBottom: Spacing.md,
-    textAlign: "center",
-  },
-  errorMessage: {
-    ...Typography.bodyMedium,
-    color: Colors.text.secondary,
-    textAlign: "center",
-    marginBottom: Spacing.lg,
-  },
-  retryButton: {
-    backgroundColor: Colors.primary.main,
-    paddingVertical: Padding.button.medium.vertical,
-    paddingHorizontal: Padding.button.medium.horizontal,
-    borderRadius: BorderRadius.md,
-  },
-  retryButtonText: {
-    ...Typography.buttonMedium,
-    color: Colors.text.onPrimary,
   },
 });
 

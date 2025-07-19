@@ -1,9 +1,25 @@
+import FloatingAIAssistant from "@/components/ai/FloatingAIAssistant";
 import { BorderRadius, Colors, Spacing, Typography } from "@/constants";
 import { useAuth } from "@/hooks/useAuth";
-import { SafeAreaView, ScrollView, StyleSheet, Text, View } from "react-native";
+import {
+  Alert,
+  SafeAreaView,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 
 const HomeScreen = () => {
   const { userProfile } = useAuth();
+
+  const handleAIMessage = (message: string) => {
+    // TODO: Implement AI message handling
+    Alert.alert(
+      "AI Assistant",
+      `You said: "${message}"\n\nAI integration coming soon!`
+    );
+  };
 
   return (
     <SafeAreaView style={styles.container}>
@@ -69,6 +85,9 @@ const HomeScreen = () => {
           </View>
         </View>
       </ScrollView>
+
+      {/* Floating AI Assistant */}
+      <FloatingAIAssistant onSendMessage={handleAIMessage} />
     </SafeAreaView>
   );
 };

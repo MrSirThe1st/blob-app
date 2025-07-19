@@ -1,4 +1,5 @@
 // src/screens/main/GoalsScreen.tsx
+import FloatingAIAssistant from "@/components/ai/FloatingAIAssistant";
 import { BorderRadius, Colors, Spacing, Typography } from "@/constants";
 import { useAuth } from "@/hooks/useAuth";
 import { Goal, goalsService } from "@/services/goals/GoalsService";
@@ -185,6 +186,14 @@ const GoalsScreen = () => {
     }
   };
 
+  const handleAIMessage = (message: string) => {
+    // TODO: Implement AI message handling for goals
+    Alert.alert(
+      "AI Assistant",
+      `You said: "${message}"\n\nAI integration for goals coming soon!`
+    );
+  };
+
   const renderOverviewStats = () => (
     <View style={styles.overviewCard}>
       <Text style={styles.overviewTitle}>Your Goals Overview</Text>
@@ -350,6 +359,9 @@ const GoalsScreen = () => {
         onProgressUpdate={handleProgressUpdate}
         onGoalDelete={handleGoalDelete}
       />
+
+      {/* Floating AI Assistant */}
+      <FloatingAIAssistant onSendMessage={handleAIMessage} />
     </SafeAreaView>
   );
 };

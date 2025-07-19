@@ -113,7 +113,7 @@ export const BorderRadius = {
   xs: 2,
   sm: 4,
   md: 8, // Default border radius
-  lg: 12,
+  lg: 20,
   xl: 16,
   "2xl": 20,
   "3xl": 24,

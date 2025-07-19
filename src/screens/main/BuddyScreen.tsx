@@ -1,7 +1,23 @@
+import FloatingAIAssistant from "@/components/ai/FloatingAIAssistant";
 import { BorderRadius, Colors, Spacing, Typography } from "@/constants";
-import { SafeAreaView, ScrollView, StyleSheet, Text, View } from "react-native";
+import {
+  Alert,
+  SafeAreaView,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 
 const BuddyScreen = () => {
+  const handleAIMessage = (message: string) => {
+    // TODO: Implement AI message handling for buddy system
+    Alert.alert(
+      "AI Assistant",
+      `You said: "${message}"\n\nAI integration for buddy system coming soon!`
+    );
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView
@@ -27,6 +43,9 @@ const BuddyScreen = () => {
           </View>
         </View>
       </ScrollView>
+
+      {/* Floating AI Assistant */}
+      <FloatingAIAssistant onSendMessage={handleAIMessage} />
     </SafeAreaView>
   );
 };

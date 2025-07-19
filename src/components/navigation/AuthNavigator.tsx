@@ -12,7 +12,7 @@ import WelcomeScreen from "@/screens/auth/WelcomeScreen";
 import BuddyScreen from "@/screens/main/BuddyScreen";
 import GoalsScreen from "@/screens/main/GoalsScreen";
 import HomeScreen from "@/screens/main/HomeScreen";
-import InsightsScreen from "@/screens/main/InsightsScreen";
+import SettingsScreen from "@/screens/main/SettingsScreen";
 import TodayScreen from "@/screens/main/TodayScreen";
 
 // Import new onboarding navigator
@@ -103,11 +103,11 @@ const MainTabsNavigator = ({ route }: any) => {
         }}
       />
       <MainTabs.Screen
-        name="Insights"
-        component={InsightsScreen}
+        name="Settings"
+        component={SettingsScreen}
         options={{
-          tabBarIcon: ({ color }) => <Text style={{ color }}>📊</Text>,
-          title: "Insights",
+          tabBarIcon: ({ color }) => <Text style={{ color }}>⚙️</Text>,
+          title: "Settings",
         }}
       />
     </MainTabs.Navigator>

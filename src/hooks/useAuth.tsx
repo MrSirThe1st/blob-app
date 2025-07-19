@@ -253,10 +253,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     console.log("👤 Updating profile for:", user.email, updates);
 
     try {
-      const { error } = await authService.updateUserProfile(
-        user.id,
-        updates
-      );
+      const { error } = await authService.updateUserProfile(user.id, updates);
 
       if (!error) {
         // Fetch the updated profile from the database
