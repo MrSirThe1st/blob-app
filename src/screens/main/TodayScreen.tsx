@@ -4,16 +4,20 @@ import WeeklyCalendar from "@/components/calendar/WeeklyCalendar";
 import ProductivityToolbar from "@/components/productivity/ProductivityToolbar";
 import DailyTaskCard from "@/components/tasks/DailyTaskCard";
 import FreeTimeBlock from "@/components/tasks/FreeTimeBlock";
+import TaskActionBottomSheet from "@/components/tasks/TaskActionBottomSheet";
 import { Colors, Spacing, Typography } from "@/constants";
 import { useAuth } from "@/hooks/useAuth";
 import { useTasks } from "@/hooks/useTasks";
 import React, { useEffect, useState } from "react";
-import { SafeAreaView, ScrollView, StyleSheet, Text, View } from "react-native";
+import { ScrollView, StyleSheet, Text, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 const TodayScreen: React.FC = () => {
   const { userProfile } = useAuth();
   const { tasks, loadTasks, completeTask } = useTasks(userProfile?.id);
   const [selectedDate, setSelectedDate] = useState(new Date());
+  const [showTaskActions, setShowTaskActions] = useState(false);
+  const [selectedTask, setSelectedTask] = useState<any>(null);
 
   useEffect(() => {
     if (userProfile?.id) {
@@ -43,6 +47,45 @@ const TodayScreen: React.FC = () => {
   const handleAIAssistantMessage = (message: string) => {
     // Handle AI assistant message
     console.log("AI message:", message);
+  };
+
+  const handleTaskLongPress = (task: any) => {
+    setSelectedTask(task);
+    setShowTaskActions(true);
+  };
+
+  const handleTaskAction = (actionId: string) => {
+    if (!selectedTask) return;
+
+    switch (actionId) {
+      case "edit_manually":
+        console.log("Edit manually:", selectedTask.title);
+        break;
+      case "connect":
+        console.log("Connect:", selectedTask.title);
+        break;
+      case "delete":
+        console.log("Delete:", selectedTask.title);
+        break;
+      case "edit_with_ai":
+        console.log("Edit with AI:", selectedTask.title);
+        break;
+      case "reschedule":
+        console.log("Reschedule:", selectedTask.title);
+        break;
+      case "cancel":
+        console.log("Cancel action");
+        break;
+      default:
+        break;
+    }
+
+    setSelectedTask(null);
+  };
+
+  const closeTaskActions = () => {
+    setShowTaskActions(false);
+    setSelectedTask(null);
   };
 
   // Convert task type to DailyTaskCard type
@@ -171,6 +214,7 @@ const TodayScreen: React.FC = () => {
                     }}
                     onComplete={() => handleTaskToggle(task.id)}
                     onTimer={() => console.log("Start timer for", task.id)}
+                    onLongPress={handleTaskLongPress}
                   />
                 ))}
 
@@ -189,6 +233,13 @@ const TodayScreen: React.FC = () => {
       </SafeAreaView>
 
       <FloatingAIAssistant onSendMessage={handleAIAssistantMessage} />
+
+      <TaskActionBottomSheet
+        visible={showTaskActions}
+        onClose={closeTaskActions}
+        onAction={handleTaskAction}
+        taskTitle={selectedTask?.title}
+      />
     </>
   );
 };

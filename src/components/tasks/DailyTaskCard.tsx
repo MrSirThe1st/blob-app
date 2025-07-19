@@ -19,6 +19,7 @@ interface DailyTask {
 interface DailyTaskCardProps {
   task: DailyTask;
   onPress?: (task: DailyTask) => void;
+  onLongPress?: (task: DailyTask) => void;
   onComplete?: (taskId: string) => void;
   onTimer?: (task: DailyTask) => void;
 }
@@ -75,6 +76,7 @@ const getIntensityColor = (intensity?: string): string => {
 const DailyTaskCard: React.FC<DailyTaskCardProps> = ({
   task,
   onPress,
+  onLongPress,
   onComplete,
   onTimer,
 }) => {
@@ -89,6 +91,8 @@ const DailyTaskCard: React.FC<DailyTaskCardProps> = ({
         task.isCompleted && styles.completedContainer,
       ]}
       onPress={() => onPress?.(task)}
+      onLongPress={() => onLongPress?.(task)}
+      delayLongPress={500}
     >
       {/* Task icon and content */}
       <View style={styles.leftSection}>

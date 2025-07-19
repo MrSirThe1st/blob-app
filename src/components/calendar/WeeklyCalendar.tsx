@@ -161,19 +161,18 @@ const styles = StyleSheet.create({
   container: {
     backgroundColor: Colors.background.card,
     borderRadius: BorderRadius.lg,
-    padding: Spacing.md,
-    marginBottom: Spacing.lg,
+    padding: Spacing.sm, // Reduced from Spacing.md
   },
   header: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: Spacing.lg,
+    marginBottom: Spacing.md, // Reduced from Spacing.lg
   },
   navButton: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: 28, // Reduced from 32
+    height: 28, // Reduced from 32
+    borderRadius: 14, // Adjusted for new size
     backgroundColor: Colors.background.secondary,
     alignItems: "center",
     justifyContent: "center",
@@ -184,7 +183,7 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   calendar: {
-    gap: Spacing.sm,
+    gap: Spacing.xs, // Reduced from Spacing.sm
   },
   dayNamesRow: {
     flexDirection: "row",
@@ -193,7 +192,7 @@ const styles = StyleSheet.create({
   dayNameCell: {
     flex: 1,
     alignItems: "center",
-    paddingVertical: Spacing.xs,
+    paddingVertical: Spacing.xs / 2, // Reduced padding
   },
   dayNameText: {
     ...Typography.captionSmall,
@@ -213,9 +212,9 @@ const styles = StyleSheet.create({
     position: "relative",
   },
   todayCircle: {
-    width: 32,
-    height: 32,
-    borderRadius: 16, // Make it perfectly round (half of width/height)
+    width: 28, // Reduced from 32
+    height: 28, // Reduced from 32
+    borderRadius: 14, // Adjusted for new size
     backgroundColor: Colors.primary.main,
     alignItems: "center",
     justifyContent: "center",
@@ -225,16 +224,16 @@ const styles = StyleSheet.create({
   },
   selectionRing: {
     position: "absolute",
-    width: 40,
-    height: 40,
+    width: 34, // Reduced from 40 to match smaller today circle
+    height: 34, // Reduced from 40 to match smaller today circle
     borderWidth: 2,
     borderColor: Colors.primary.main,
-    borderRadius: 20,
+    borderRadius: 17, // Adjusted for new size
     backgroundColor: "transparent",
     top: "50%",
     left: "50%",
-    marginTop: -20,
-    marginLeft: -20,
+    marginTop: -17, // Adjusted for new size
+    marginLeft: -17, // Adjusted for new size
   },
   dateText: {
     ...Typography.bodyMedium,
