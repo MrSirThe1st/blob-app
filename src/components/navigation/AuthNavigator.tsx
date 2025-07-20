@@ -16,6 +16,7 @@ import SettingsScreen from "@/screens/main/SettingsScreen";
 import TodayScreen from "@/screens/main/TodayScreen";
 
 // Import new onboarding navigator
+import { Ionicons } from "@expo/vector-icons";
 import OnboardingNavigator from "./OnboardingNavigator";
 
 const AuthStack = createNativeStackNavigator();
@@ -63,10 +64,19 @@ const MainTabsNavigator = ({ route }: any) => {
       screenOptions={{
         headerShown: false,
         tabBarActiveTintColor: Colors.primary.main,
-        tabBarInactiveTintColor: Colors.text.muted,
+        tabBarInactiveTintColor: "#8E8E93", // iOS gray for better visibility
         tabBarStyle: {
-          backgroundColor: Colors.background.card,
-          borderTopColor: Colors.border.subtle,
+          backgroundColor: Colors.background.primary, // Match screen background
+          borderTopWidth: 0, // Remove top border
+          elevation: 0, // Remove shadow on Android
+          shadowOpacity: 0, // Remove shadow on iOS
+          paddingBottom: 8,
+          paddingTop: 8,
+          height: 60,
+        },
+        tabBarShowLabel: false, // Remove text labels
+        tabBarIconStyle: {
+          marginTop: 0,
         },
       }}
     >
@@ -74,40 +84,65 @@ const MainTabsNavigator = ({ route }: any) => {
         name="Home"
         component={HomeScreen}
         options={{
-          tabBarIcon: ({ color }) => <Text style={{ color }}>🏠</Text>,
-          title: "Home",
+          tabBarIcon: ({ color, focused }) => (
+            <Ionicons
+              name={focused ? "grid" : "grid"}
+              size={24}
+              color={color}
+            />
+          ),
         }}
       />
       <MainTabs.Screen
         name="Today"
         component={TodayScreen}
         options={{
-          tabBarIcon: ({ color }) => <Text style={{ color }}>📅</Text>,
-          title: "Today",
+          tabBarIcon: ({ color, focused }) => (
+            <Ionicons
+              name={focused ? "today" : "today"}
+              size={24}
+              color={color}
+            />
+          ),
         }}
       />
       <MainTabs.Screen
         name="Goals"
         component={GoalsScreen}
         options={{
-          tabBarIcon: ({ color }) => <Text style={{ color }}>🎯</Text>,
-          title: "Goals",
+          tabBarIcon: ({ color, focused }) => (
+            <Ionicons
+              name={focused ? "trophy" : "trophy"}
+              size={24}
+              color={color}
+            />
+          ),
         }}
       />
       <MainTabs.Screen
         name="Buddy"
         component={BuddyScreen}
         options={{
-          tabBarIcon: ({ color }) => <Text style={{ color }}>🤝</Text>,
-          title: "Buddy",
+          tabBarIcon: ({ color, focused }) => (
+            <Ionicons
+              name={focused ? "person-add" : "person-add"}
+              size={24}
+              color={color}
+            />
+          ),
         }}
       />
       <MainTabs.Screen
         name="Settings"
         component={SettingsScreen}
         options={{
-          tabBarIcon: ({ color }) => <Text style={{ color }}>⚙️</Text>,
-          title: "Settings",
+          tabBarIcon: ({ color, focused }) => (
+            <Ionicons
+              name={focused ? "settings" : "settings"}
+              size={24}
+              color={color}
+            />
+          ),
         }}
       />
     </MainTabs.Navigator>

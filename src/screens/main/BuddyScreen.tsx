@@ -9,6 +9,7 @@ import {
   Modal,
   SafeAreaView,
   ScrollView,
+  StatusBar,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -577,9 +578,15 @@ const BuddyScreen = () => {
 
   return (
     <SafeAreaView style={styles.container}>
+      <StatusBar
+        barStyle="dark-content"
+        backgroundColor={Colors.background.primary}
+        translucent={false}
+      />
       <ScrollView
         style={styles.scrollView}
         showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.scrollViewContent}
       >
         {/* Header with padding */}
         <View style={styles.header}>
@@ -818,12 +825,16 @@ const styles = StyleSheet.create({
   scrollView: {
     flex: 1,
   },
+  scrollViewContent: {
+    flexGrow: 1,
+  },
   content: {
     padding: Spacing.lg,
   },
   header: {
     marginBottom: Spacing.xl,
     paddingHorizontal: Spacing.lg, // Add horizontal padding to header
+    paddingTop: Spacing.sm, // Add small top padding for better spacing
   },
   title: {
     ...Typography.h1,

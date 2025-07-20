@@ -2,7 +2,7 @@ export type RootStackParamList = {
   Auth: undefined;
   Onboarding: undefined;
   MainTabs:
-    | { initialTab?: "Home" | "Today" | "Goals" | "Buddy" | "Insights" }
+    | { initialTab?: "Home" | "Today" | "Goals" | "Buddy" | "Settings" }
     | undefined;
 };
 
@@ -11,5 +11,5 @@ export type MainTabParamList = {
   Today: undefined;
   Goals: undefined;
   Buddy: undefined;
-  Insights: undefined;
+  Settings: undefined;
 };

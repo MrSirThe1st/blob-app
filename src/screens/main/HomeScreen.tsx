@@ -313,7 +313,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   content: {
-    padding: Spacing.lg,
+    padding: Spacing.md,
   },
   header: {
     marginBottom: Spacing.xl,

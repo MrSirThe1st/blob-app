@@ -433,7 +433,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   content: {
-    padding: Spacing.lg,
+    padding: Spacing.md,
     paddingBottom: Spacing["2xl"],
   },
   header: {

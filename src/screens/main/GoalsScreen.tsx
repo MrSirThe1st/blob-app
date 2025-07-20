@@ -449,7 +449,7 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
   goalsContainer: {
-    paddingHorizontal: Spacing.lg,
+    paddingHorizontal: Spacing.md,
   },
   goalsSection: {
     marginBottom: Spacing.xl,
