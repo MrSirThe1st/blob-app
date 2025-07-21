@@ -4,11 +4,13 @@
  * Eliminates mock responses and implements proper personalized goal/task generation
  */
 
-import { openAIService, ExtractedGoal } from "@/services/api/openai";
-import { onboardingStorageService } from "./OnboardingStorageService";
+import { ExtractedGoal, openAIService } from "@/services/api/openai";
+import { supabase } from "@/services/api/supabase";
 import { databaseService } from "@/services/database/DatabaseService";
 import { goalsService } from "@/services/goals/GoalsService";
 import { taskSystemOrchestrator } from "@/services/orchestrator/TaskSystemOrchestrator";
+import { onboardingStorageService } from "./OnboardingStorageService";
+import { onboardingTaskGenerationService } from "./OnboardingTaskGenerationService";
 
 interface OnboardingData {
   energyPattern?: "morning" | "afternoon" | "evening";
@@ -104,93 +106,58 @@ export class OnboardingCompletionService {
         // Continue anyway, but log the issue
       }
 
-      // Step 5: Process conversation with AI to extract insights
-      console.log("🤖 Processing conversation with AI...");
-      const conversationData =
-        await openAIService.processOnboardingConversation(
+      // Step 5: Generate EVERYTHING in ONE AI request
+      console.log("🤖 Generating complete onboarding setup with AI...");
+      const completeSetup = await openAIService.generateCompleteOnboardingSetup(
+        {
           conversationText,
           basicProfile,
-          additionalContext
-        );
+          additionalContext,
+          timeframe: "1_week", // Default timeframe
+        }
+      );
 
       // Update stored data with AI insights
-      if (
-        storageResult.success &&
-        conversationData.aiInsights &&
-        conversationData.summarized
-      ) {
+      if (storageResult.success) {
         await onboardingStorageService.updateWithAIInsights(
           userId,
-          conversationData.aiInsights,
-          conversationData.summarized
+          completeSetup.aiInsights,
+          completeSetup.summarized
         );
-      }
-
-      // Step 6: Extract goals from conversation
-      console.log("🎯 Extracting goals from conversation...");
-      const extractedGoals = await openAIService.extractGoalsFromConversation({
-        conversationText,
-        basicProfile,
-        additionalContext,
-      });
-
-      if (extractedGoals.length === 0) {
-        return {
-          success: false,
-          message:
-            "Unable to identify specific goals from your conversation. Please provide more details about what you want to achieve.",
-          redirectTo: "OnboardingStep5",
-          error: "No goals could be extracted from conversation",
-        };
       }
 
       console.log(
-        `✅ Extracted ${extractedGoals.length} goals:`,
-        extractedGoals.map((g) => g.title)
+        `✅ Generated complete setup: ${completeSetup.goals.length} goals, ${completeSetup.initialTasks.length} tasks`
       );
 
-      // Step 7: Create goals in database with AI breakdowns
+      // Step 6: Create goals in database
       const createdGoals = await this.createGoalsInDatabase(
-        extractedGoals,
+        completeSetup.goals,
         userId,
-        conversationData
+        {
+          aiInsights: completeSetup.aiInsights,
+          summarized: completeSetup.summarized,
+        }
       );
 
-      // Step 8: Generate tasks for each goal
-      let totalTasksGenerated = 0;
-      for (const goal of createdGoals) {
-        try {
-          const userContext = conversationData.summarized?.userContext || "";
-          const goalTasks = await openAIService.generateTasksFromGoal(
-            goal.title,
-            goal.description,
-            {
-              chronotype: basicProfile.chronotype,
-              workStyle: basicProfile.workStyle,
-              availableHours: 8, // Default, can be extracted from conversation
-            },
-            userContext
-          );
+      // Step 7: Create initial tasks in database
+      const createdTasks = await this.createTasksInDatabase(
+        userId,
+        completeSetup.initialTasks
+      );
 
-          console.log(
-            `📋 Generated ${goalTasks.length} tasks for goal: ${goal.title}`
-          );
-          totalTasksGenerated += goalTasks.length;
+      console.log(
+        `✅ Created ${createdGoals.length} goals and ${createdTasks.length} tasks`
+      );
 
-          // TODO: Store tasks in database
-          // This would integrate with your existing task storage system
-        } catch (taskError) {
-          console.error(
-            `Failed to generate tasks for goal ${goal.title}:`,
-            taskError
-          );
-          // Continue with other goals
-        }
-      }
-
-      // Step 9: Initialize task system (your existing logic)
-      const taskSystemResult =
+      // Step 8: Initialize task system (your existing logic)
+      try {
         await taskSystemOrchestrator.initializeTaskSystem(userId);
+        console.log("✅ Task system initialized");
+      } catch (error) {
+        console.error("❌ Task system initialization failed:", error);
+        // Continue anyway - core onboarding is complete
+      }
 
       const nextSteps = [
         "Review your personalized goals and tasks",
@@ -206,7 +173,7 @@ export class OnboardingCompletionService {
         redirectTo: "Home",
         data: {
           goalsCreated: createdGoals.length,
-          tasksGenerated: totalTasksGenerated,
+          tasksGenerated: createdTasks.length,
           nextSteps,
           aiProcessed: true,
         },
@@ -253,6 +220,98 @@ export class OnboardingCompletionService {
   }
 
   /**
+   * Map extracted goal categories to valid Goal categories
+   */
+  private static mapGoalCategory(
+    category: string
+  ):
+    | "health"
+    | "career"
+    | "personal"
+    | "learning"
+    | "relationships"
+    | "finance" {
+    switch (category.toLowerCase()) {
+      case "fitness":
+        return "health";
+      case "career":
+        return "career";
+      case "learning":
+        return "learning";
+      case "personal":
+        return "personal";
+      case "relationships":
+        return "relationships";
+      case "finance":
+        return "finance";
+      default:
+        return "personal"; // Default fallback
+    }
+  }
+
+  /**
+   * Parse target date from AI response, handling various formats
+   */
+  private static parseTargetDate(targetDate?: string): string | undefined {
+    if (!targetDate) return undefined;
+
+    try {
+      // Handle relative dates like "3 months", "6 weeks", etc.
+      const relativeDateMatch = targetDate.match(/(\d+)\s*(month|week|day)s?/i);
+      if (relativeDateMatch) {
+        const amount = parseInt(relativeDateMatch[1]);
+        const unit = relativeDateMatch[2].toLowerCase();
+        const futureDate = new Date();
+
+        switch (unit) {
+          case "month":
+            futureDate.setMonth(futureDate.getMonth() + amount);
+            break;
+          case "week":
+            futureDate.setDate(futureDate.getDate() + amount * 7);
+            break;
+          case "day":
+            futureDate.setDate(futureDate.getDate() + amount);
+            break;
+        }
+
+        return futureDate.toISOString();
+      }
+
+      // Try to parse as a standard date
+      const parsedDate = new Date(targetDate);
+
+      // Check if the date is valid
+      if (isNaN(parsedDate.getTime())) {
+        console.warn(
+          `Invalid target date: ${targetDate}, using default 3 months`
+        );
+        const defaultDate = new Date();
+        defaultDate.setMonth(defaultDate.getMonth() + 3);
+        return defaultDate.toISOString();
+      }
+
+      // Check if the date is in the past
+      if (parsedDate < new Date()) {
+        console.warn(
+          `Target date is in the past: ${targetDate}, using 3 months from now`
+        );
+        const futureDate = new Date();
+        futureDate.setMonth(futureDate.getMonth() + 3);
+        return futureDate.toISOString();
+      }
+
+      return parsedDate.toISOString();
+    } catch (error) {
+      console.error(`Error parsing target date: ${targetDate}`, error);
+      // Default to 3 months from now
+      const defaultDate = new Date();
+      defaultDate.setMonth(defaultDate.getMonth() + 3);
+      return defaultDate.toISOString();
+    }
+  }
+
+  /**
    * Create goals in database with AI-generated breakdowns
    */
   private static async createGoalsInDatabase(
@@ -264,35 +323,22 @@ export class OnboardingCompletionService {
 
     for (const goal of extractedGoals) {
       try {
+        console.log(
+          `🎯 Creating goal: ${goal.title} with targetDate: ${goal.targetDate}`
+        );
+
         // Prepare goal data for database
         const goalData = {
           title: goal.title,
           description: goal.description,
-          category: goal.category,
+          category: this.mapGoalCategory(goal.category),
           priority: goal.priority,
-          targetDate: goal.targetDate
-            ? new Date(goal.targetDate).toISOString()
-            : null,
-          isActive: true,
-          userId,
-          aiBreakdown: {
-            milestones: goal.breakdown?.milestones || [],
-            suggestedTasks: goal.breakdown?.suggestedTasks || [],
-            timeframe: goal.breakdown?.timeframe || "Not specified",
-            userContext: goal.userContext,
-            aiGenerated: true,
-            extractedFrom: "onboarding_conversation",
-          },
-          userPreferences: {
-            chronotype:
-              conversationData.aiInsights?.workPreferences?.focusStyle,
-            stressFactors: conversationData.aiInsights?.stressFactors,
-            motivation: conversationData.aiInsights?.motivationType,
-          },
+          targetDate: this.parseTargetDate(goal.targetDate),
+          userContext: goal.userContext,
         };
 
         // Create goal using your existing service
-        const createdGoal = await goalsService.createGoal(goalData);
+        const createdGoal = await goalsService.createGoal(userId, goalData);
 
         if (createdGoal) {
           console.log(`✅ Created goal: ${goal.title}`);
@@ -307,6 +353,61 @@ export class OnboardingCompletionService {
     }
 
     return createdGoals;
+  }
+
+  /**
+   * Create tasks in database from AI-generated task list
+   */
+  private static async createTasksInDatabase(
+    userId: string,
+    aiGeneratedTasks: any[]
+  ): Promise<any[]> {
+    const createdTasks = [];
+
+    for (const task of aiGeneratedTasks) {
+      try {
+        console.log(`📋 Creating task: ${task.title}`);
+
+        // Prepare task data for database
+        const taskData = {
+          user_id: userId,
+          title: task.title,
+          description: task.description || "",
+          type: task.type || "one_time",
+          priority: task.priority || "medium",
+          status: "pending",
+          estimated_duration: task.estimatedDuration || 30,
+          suggested_time_slot: task.timeSlot || "morning",
+          energy_level_required: task.energyLevel || "medium",
+          difficulty_level: Math.min(Math.max(task.difficulty || 1, 1), 10),
+          context_requirements: `Generated from onboarding - ${task.category || "general"}`,
+          success_criteria:
+            task.successCriteria || "Complete the task successfully",
+          scheduled_date: new Date().toISOString().split("T")[0], // Today
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        };
+
+        // Create task directly with supabase
+        const { data, error } = await supabase
+          .from("tasks")
+          .insert(taskData)
+          .select("*")
+          .single();
+
+        if (error) {
+          console.error(`❌ Failed to create task: ${task.title}`, error);
+        } else {
+          console.log(`✅ Created task: ${task.title}`);
+          createdTasks.push(data);
+        }
+      } catch (error) {
+        console.error(`❌ Error creating task ${task.title}:`, error);
+        // Continue with other tasks
+      }
+    }
+
+    return createdTasks;
   }
 
   /**
@@ -348,8 +449,13 @@ export class OnboardingCompletionService {
       }
 
       // Initialize task system
-      const taskSystemResult =
+      try {
         await taskSystemOrchestrator.initializeTaskSystem(userId);
+        console.log("✅ Task system initialized");
+      } catch (error) {
+        console.error("❌ Task system initialization failed:", error);
+        // Continue anyway - core onboarding is complete
+      }
 
       return {
         success: true,
@@ -437,16 +543,32 @@ export class OnboardingCompletionService {
         conversationData
       );
 
+      // Generate initial tasks from onboarding insights
+      console.log("📋 Generating initial tasks from retry AI processing...");
+      const taskGenerationResult =
+        await onboardingTaskGenerationService.generateInitialTasks({
+          userId,
+          conversationText: conversation_text,
+          basicProfile: basic_profile,
+          aiInsights: conversationData.aiInsights,
+          timeframe: "1_week",
+        });
+
+      const tasksGenerated = taskGenerationResult.success
+        ? taskGenerationResult.tasksGenerated
+        : 0;
+
       return {
         success: true,
-        message: `Successfully processed your onboarding data with AI! Created ${createdGoals.length} personalized goals.`,
+        message: `Successfully processed your onboarding data with AI! Created ${createdGoals.length} personalized goals and ${tasksGenerated} initial tasks.`,
         redirectTo: "Goals",
         data: {
           goalsCreated: createdGoals.length,
-          tasksGenerated: 0, // Tasks will be generated later
+          tasksGenerated: tasksGenerated, // Use actual generated tasks count
           nextSteps: [
             "Review your new AI-generated goals",
-            "Generate tasks for your goals",
+            "Check your initial tasks in the Today screen",
+            "Generate more tasks for your goals",
             "Update your daily schedule",
           ],
           aiProcessed: true,

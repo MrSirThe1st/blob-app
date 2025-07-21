@@ -4,8 +4,6 @@
  * Eliminates mock responses and implements proper AI-driven functionality
  */
 
-import { Colors, Typography, Spacing, BorderRadius } from "@/constants";
-
 // Types for OpenAI integration
 export interface ChatMessage {
   role: "system" | "user" | "assistant";
@@ -629,6 +627,160 @@ Break this down into actionable tasks that consider the user's profile and const
       throw new Error("No valid task response from AI");
     } catch (error) {
       console.error("Error generating tasks from goal:", error);
+      throw error;
+    }
+  }
+
+  /**
+   * CONSOLIDATED METHOD: Generate complete onboarding setup in ONE request
+   * Replaces: extractGoalsFromConversation + processOnboardingConversation + generateInitialTasks
+   */
+  async generateCompleteOnboardingSetup(
+    request: GoalExtractionRequest & {
+      timeframe?: "2_days" | "1_week" | "2_weeks";
+    }
+  ): Promise<{
+    goals: ExtractedGoal[];
+    initialTasks: GeneratedTask[];
+    aiInsights: OnboardingConversationData["aiInsights"];
+    summarized: OnboardingConversationData["summarized"];
+  }> {
+    if (!this.isConfigured) {
+      throw new Error(
+        "AI service is not available. Please configure your API key for onboarding setup."
+      );
+    }
+
+    const timeframe = request.timeframe || "1_week";
+    const systemPrompt: ChatMessage = {
+      role: "system",
+      content: `You are an expert AI productivity assistant. Analyze the user's onboarding conversation and create a COMPLETE productivity setup in a single response.
+
+USER PROFILE:
+- Chronotype: ${request.basicProfile.chronotype || "Not specified"}
+- Work Style: ${request.basicProfile.workStyle || "Not specified"}
+- Stress Response: ${request.basicProfile.stressResponse || "Not specified"}
+- Timeframe: ${timeframe}
+
+ADDITIONAL CONTEXT:
+${request.additionalContext?.energyPatternNote ? `Energy Pattern: ${request.additionalContext.energyPatternNote}` : ""}
+${request.additionalContext?.workStyleNote ? `Work Style Details: ${request.additionalContext.workStyleNote}` : ""}
+${request.additionalContext?.stressResponseNote ? `Stress Management: ${request.additionalContext.stressResponseNote}` : ""}
+
+Return a JSON object with this EXACT structure:
+{
+  "goals": [
+    {
+      "title": "Specific, actionable goal title",
+      "description": "Detailed description explaining what success looks like",
+      "category": "fitness|career|learning|personal|finance|relationships",
+      "priority": "low|medium|high",
+      "targetDate": "YYYY-MM-DD or relative like '3 months'",
+      "userContext": "Why this matters to the user",
+      "breakdown": {
+        "milestones": ["milestone 1", "milestone 2"],
+        "suggestedTasks": ["task 1", "task 2", "task 3"],
+        "timeframe": "How long this should realistically take"
+      }
+    }
+  ],
+  "initialTasks": [
+    {
+      "id": "task_1",
+      "title": "Specific, actionable task title",
+      "description": "Clear step-by-step description",
+      "estimatedDuration": 30,
+      "priority": "high|medium|low",
+      "category": "work|personal|health|learning|planning",
+      "isFlexible": true,
+      "reasoning": "Why this task is important",
+      "startTime": "",
+      "endTime": ""
+    }
+  ],
+  "aiInsights": {
+    "primaryGoals": ["goal 1", "goal 2"],
+    "challenges": ["challenge 1", "challenge 2"],
+    "lifestyle": "Comprehensive lifestyle description",
+    "motivationType": "What drives this person",
+    "availabilityPattern": "When they can realistically work",
+    "personalityTraits": ["trait 1", "trait 2"],
+    "workPreferences": {
+      "preferredHours": "When they work best",
+      "energyPeaks": ["morning", "afternoon", "evening"],
+      "focusStyle": "How they prefer to work"
+    },
+    "stressFactors": ["what causes them stress"],
+    "timeConstraints": ["specific time limitations"]
+  },
+  "summarized": {
+    "keyPoints": ["key insight 1", "key insight 2"],
+    "userContext": "Summary of user's situation",
+    "personalizedRecommendations": ["recommendation 1", "recommendation 2"]
+  }
+}
+
+REQUIREMENTS:
+- Extract 3-5 specific goals from the conversation
+- Create 5-8 immediate actionable tasks for ${timeframe}
+- Tasks should address the identified goals and challenges
+- Consider user's work style and energy patterns
+- Make everything specific and measurable`,
+    };
+
+    const userPrompt: ChatMessage = {
+      role: "user",
+      content: `Analyze this onboarding conversation and create a complete productivity setup:
+
+"${request.conversationText}"
+
+Based on this conversation, create:
+1. Specific goals that address what the user wants to achieve
+2. Immediate actionable tasks for ${timeframe} that move toward those goals
+3. Deep insights about their productivity patterns and preferences
+4. Personalized recommendations for success
+
+Focus on practical, achievable steps that fit their lifestyle and constraints.`,
+    };
+
+    try {
+      const response = await this.makeRequest([systemPrompt, userPrompt], {
+        temperature: 0.4,
+        max_tokens: 3000, // Increased for comprehensive response
+      });
+
+      if (response.content) {
+        try {
+          const setup = JSON.parse(response.content);
+
+          // Validate the response structure
+          if (!setup.goals || !setup.initialTasks || !setup.aiInsights) {
+            throw new Error("Invalid onboarding setup format received");
+          }
+
+          // Add missing IDs and timestamps
+          setup.initialTasks = setup.initialTasks.map(
+            (task: any, index: number) => ({
+              ...task,
+              id: task.id || `onboarding_task_${Date.now()}_${index}`,
+              startTime: task.startTime || "",
+              endTime: task.endTime || "",
+            })
+          );
+
+          console.log(
+            `✅ Generated complete onboarding setup: ${setup.goals.length} goals, ${setup.initialTasks.length} tasks`
+          );
+          return setup;
+        } catch (parseError) {
+          console.error("Failed to parse onboarding setup:", parseError);
+          throw new Error("Failed to parse complete onboarding setup response");
+        }
+      }
+
+      throw new Error("No valid onboarding setup response from AI");
+    } catch (error) {
+      console.error("Error generating complete onboarding setup:", error);
       throw error;
     }
   }
